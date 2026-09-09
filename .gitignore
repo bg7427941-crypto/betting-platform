@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Production builds
+frontend/dist/
+backend/dist/
+dist/
+build/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data and local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage and test output
+coverage/
+.nyc_output/
+
+# Vite cache
+frontend/.vite/
+.vite/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo

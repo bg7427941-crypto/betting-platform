@@ -1,0 +1,395 @@
+/* =========================================================
+   TOKENS
+   Color:
+     --felt      #0F2D22  fondo base (verde fieltro de mesa, no negro puro)
+     --felt-2    #16392C  paneles/superficies elevadas
+     --line      #2C4F40  hairlines/divisores
+     --gold      #C9A227  acento principal (fichas, marcador de victoria)
+     --gold-dim  #8F7A2E  variante apagada del dorado (hover, secundario)
+     --brick     #A8402F  acento de pérdida/away/negativo
+     --parchment #F2ECDB  texto principal (cálido, no blanco puro)
+     --sage      #93A99C  texto secundario/muted
+   Type:
+     Fraunces      -> titulares, marcador (carácter de cartel de casino)
+     IBM Plex Sans -> texto de interfaz
+     IBM Plex Mono -> cuotas, saldos, cualquier número (tabular, aire a scoreboard)
+   Layout: alineado a la izquierda, paneles planos con borde de 1px,
+   sin sombras suaves ni radios grandes — ficha/ticket, no tarjeta SaaS.
+   ========================================================= */
+
+:root {
+  --felt: #0f2d22;
+  --felt-2: #16392c;
+  --felt-3: #1e4536;
+  --line: #2c4f40;
+  --gold: #c9a227;
+  --gold-dim: #8f7a2e;
+  --brick: #a8402f;
+  --parchment: #f2ecdb;
+  --sage: #93a99c;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(201, 162, 39, 0.025) 0px,
+      rgba(201, 162, 39, 0.025) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(201, 162, 39, 0.06), transparent 60%),
+    var(--felt);
+  color: var(--parchment);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------- layout shell ---------- */
+
+.shell {
+  display: flex;
+  min-height: 100%;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--felt-2);
+  border-right: 1px solid var(--line);
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.01em;
+  color: var(--gold);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav a {
+  text-decoration: none;
+  color: var(--sage);
+  padding: 9px 10px;
+  border-left: 2px solid transparent;
+  font-size: 14px;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.nav a:hover {
+  color: var(--parchment);
+}
+
+.nav a.active {
+  color: var(--parchment);
+  border-left-color: var(--gold);
+  background: rgba(201, 162, 39, 0.08);
+}
+
+.sidebar-wallet {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.sidebar-wallet .label {
+  color: var(--sage);
+  font-size: 12px;
+  text-transform: none;
+}
+
+.sidebar-wallet .amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-wallet .amount {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--parchment);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-icon {
+  flex-shrink: 0;
+}
+
+.main {
+  flex: 1;
+  padding: 40px 48px;
+  max-width: 920px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.page-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 42px;
+  height: 3px;
+  background: var(--gold);
+}
+
+.page-sub {
+  color: var(--sage);
+  margin: 0 0 32px;
+  max-width: 60ch;
+}
+
+/* ---------- panels & tickets ---------- */
+
+.panel {
+  background: var(--felt-2);
+  border: 1px solid var(--line);
+  outline: 1px solid rgba(201, 162, 39, 0.12);
+  outline-offset: -5px;
+  padding: 22px 24px;
+}
+
+.panel + .panel {
+  margin-top: 14px;
+}
+
+.ticket {
+  background: var(--felt-2);
+  border: 1px solid var(--line);
+  padding: 16px 18px 16px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: relative;
+}
+
+.ticket::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--felt) 0px,
+    var(--felt) 6px,
+    var(--line) 6px,
+    var(--line) 12px
+  );
+  background-size: 1px 12px;
+}
+
+.ticket + .ticket {
+  border-top: none;
+}
+
+/* ---------- form elements ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.field label {
+  font-size: 13px;
+  color: var(--sage);
+}
+
+.field input,
+.field select {
+  background: var(--felt);
+  border: 1px solid var(--line);
+  color: var(--parchment);
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.btn {
+  background: var(--gold);
+  color: var(--felt);
+  border: none;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.btn:hover {
+  background: var(--gold-dim);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  background: var(--line);
+  color: var(--sage);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--parchment);
+  border: 1px solid var(--line);
+  padding: 10px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--gold);
+}
+
+.btn-ghost:active {
+  transform: scale(0.97);
+}
+
+/* ---------- odds / numbers ---------- */
+
+.odds-btn {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  background: var(--felt);
+  border: 1px solid var(--line);
+  color: var(--parchment);
+  padding: 8px 14px;
+  cursor: pointer;
+  min-width: 64px;
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.08s ease;
+}
+
+.odds-btn:hover {
+  border-color: var(--gold);
+}
+
+.odds-btn:active {
+  transform: scale(0.96);
+}
+
+.odds-btn.selected {
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.14);
+  color: var(--gold);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.text-gold {
+  color: var(--gold);
+}
+
+.text-brick {
+  color: var(--brick);
+}
+
+.text-sage {
+  color: var(--sage);
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 16px 0;
+  border: none;
+}
+
+.error-banner {
+  background: rgba(168, 64, 47, 0.15);
+  border: 1px solid var(--brick);
+  color: var(--parchment);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.empty-state {
+  color: var(--sage);
+  padding: 40px 0;
+  text-align: left;
+}
+
+/* ---------- auth screens ---------- */
+
+.auth-shell {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.auth-card .brand {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.auth-card .tagline {
+  color: var(--sage);
+  margin: 0 0 28px;
+  font-size: 14px;
+}
