@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 import { RouletteWheel } from '../components/RouletteWheel';
-
-const ROULETTE_BETS = [
-  { type: 'red', label: 'Rojo' },
-  { type: 'black', label: 'Negro' },
-  { type: 'even', label: 'Par' },
-  { type: 'odd', label: 'Impar' },
-  { type: 'low', label: '1–18' },
-  { type: 'high', label: '19–36' },
-];
+import { BettingTable } from '../components/BettingTable';
 
 export default function Casino() {
   const [tab, setTab] = useState('roulette');
@@ -39,26 +31,43 @@ export default function Casino() {
 
 function Roulette() {
   const { refresh } = useWallet();
-  const [stake, setStake] = useState('5');
-  const [betType, setBetType] = useState('red');
+  const [placedBets, setPlacedBets] = useState({}); // { key: { type, value, stakeCents } }
+  const [selectedChip, setSelectedChip] = useState(5);
   const [spinning, setSpinning] = useState(false);
-  const [pendingResult, setPendingResult] = useState(null); // llegó del server, pero la rueda sigue frenando
-  const [result, setResult] = useState(null); // ya se puede mostrar (rueda ya frenó)
+  const [pendingResult, setPendingResult] = useState(null);
+  const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
+  const totalStakeCents = Object.values(placedBets).reduce((sum, b) => sum + b.stakeCents, 0);
+
+  function placeChip(key, betShape) {
+    setResult(null);
+    setPlacedBets((prev) => {
+      const existing = prev[key];
+      const stakeCents = (existing?.stakeCents || 0) + selectedChip * 100;
+      return { ...prev, [key]: { ...betShape, stakeCents } };
+    });
+  }
+
+  function clearAll() {
+    setPlacedBets({});
+    setResult(null);
+  }
+
   async function play() {
+    if (totalStakeCents === 0) return;
     setError('');
     setResult(null);
     setPendingResult(null);
     setSpinning(true);
     try {
-      const stakeCents = Math.round(Number(stake) * 100);
-      const { round } = await api.playCasino({
-        game: 'roulette',
-        stake_cents: stakeCents,
-        bet: { type: betType },
-      });
-      setPendingResult(round); // dispara el frenado de la rueda hacia este número
+      const bets = Object.values(placedBets).map((b) => ({
+        type: b.type,
+        value: b.value,
+        stake_cents: b.stakeCents,
+      }));
+      const { round } = await api.playCasino({ game: 'roulette', bets });
+      setPendingResult(round);
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -69,79 +78,82 @@ function Roulette() {
   function handleSettled() {
     setSpinning(false);
     setResult(pendingResult);
+    setPlacedBets({});
   }
 
+  const wonBets = result?.outcome.bets.filter((b) => b.won) || [];
+
   return (
-    <div className="panel" style={{ maxWidth: 480 }}>
+    <div className="panel" style={{ maxWidth: 900 }}>
       {error && <div className="error-banner">{error}</div>}
 
-      <RouletteWheel
-        spinning={spinning}
-        winningNumber={pendingResult?.outcome.winningNumber}
-        onSettled={handleSettled}
-      />
+      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+        <RouletteWheel
+          spinning={spinning}
+          winningNumber={pendingResult?.outcome.winningNumber}
+          onSettled={handleSettled}
+        />
 
-      <div className="field" style={{ marginTop: 20 }}>
-        <label>Apuesta</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {ROULETTE_BETS.map((b) => (
-            <button
-              key={b.type}
-              className={`odds-btn ${betType === b.type ? 'selected' : ''}`}
-              onClick={() => setBetType(b.type)}
-              disabled={spinning}
-            >
-              {b.label}
-            </button>
-          ))}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div className="text-sage" style={{ fontSize: 13, marginBottom: 4 }}>
+            Total en mesa
+          </div>
+          <div className="mono text-gold" style={{ fontSize: 24, marginBottom: 16 }}>
+            {formatCents(totalStakeCents)}
+          </div>
+
+          <button className="btn" onClick={play} disabled={spinning || totalStakeCents === 0} style={{ width: '100%' }}>
+            {spinning ? 'Girando…' : 'Girar ruleta'}
+          </button>
+
+          {result && (
+            <div className="result-reveal" style={{ marginTop: 16 }}>
+              <hr className="divider" />
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                <span className="mono" style={{ fontSize: 32 }}>
+                  {result.outcome.winningNumber}
+                </span>
+                <span
+                  className={
+                    result.outcome.color === 'red'
+                      ? 'text-brick'
+                      : result.outcome.color === 'black'
+                      ? 'text-sage'
+                      : 'text-gold'
+                  }
+                  style={{ textTransform: 'capitalize' }}
+                >
+                  {result.outcome.color === 'red' ? 'rojo' : result.outcome.color === 'black' ? 'negro' : 'verde'}
+                </span>
+              </div>
+              <div style={{ marginTop: 6 }}>
+                {result.payout_cents > 0 ? (
+                  <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
+                ) : (
+                  <span className="text-sage">Sin suerte esta vez</span>
+                )}
+              </div>
+              {wonBets.length > 0 && (
+                <div className="text-sage" style={{ fontSize: 12, marginTop: 6 }}>
+                  {wonBets.length} de tus {result.outcome.bets.length} apuestas ganaron
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="field" style={{ maxWidth: 160 }}>
-        <label htmlFor="rstake">Monto (PEN)</label>
-        <input
-          id="rstake"
-          type="number"
-          min="1"
-          value={stake}
-          onChange={(e) => setStake(e.target.value)}
-          disabled={spinning}
-        />
-      </div>
+      <hr className="divider" />
 
-      <button className="btn" onClick={play} disabled={spinning}>
-        {spinning ? 'Girando…' : 'Girar ruleta'}
-      </button>
-
-      {result && (
-        <>
-          <hr className="divider" />
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }} className="result-reveal">
-            <span className="mono" style={{ fontSize: 32 }}>
-              {result.outcome.winningNumber}
-            </span>
-            <span
-              className={
-                result.outcome.color === 'red'
-                  ? 'text-brick'
-                  : result.outcome.color === 'black'
-                  ? 'text-sage'
-                  : 'text-gold'
-              }
-              style={{ textTransform: 'capitalize' }}
-            >
-              {result.outcome.color === 'red' ? 'rojo' : result.outcome.color === 'black' ? 'negro' : 'verde'}
-            </span>
-          </div>
-          <div style={{ marginTop: 6 }}>
-            {result.outcome.won ? (
-              <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
-            ) : (
-              <span className="text-sage">Sin suerte esta vez</span>
-            )}
-          </div>
-        </>
-      )}
+      <BettingTable
+        placedBets={placedBets}
+        onPlaceChip={placeChip}
+        onClearAll={clearAll}
+        selectedChip={selectedChip}
+        onSelectChip={setSelectedChip}
+        disabled={spinning}
+        winningNumber={result?.outcome.winningNumber}
+      />
     </div>
   );
 }

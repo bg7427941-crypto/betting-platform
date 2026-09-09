@@ -43,13 +43,15 @@ function slicePath(index) {
  */
 export function RouletteWheel({ spinning, winningNumber, onSettled }) {
   const [rotation, setRotation] = useState(0);
+  const [ballRotation, setBallRotation] = useState(0);
   const [transitionOn, setTransitionOn] = useState(false);
 
-  // Giro indefinido mientras se espera el resultado
+  // Giro indefinido mientras se espera el resultado (rueda y bola en direcciones opuestas)
   useEffect(() => {
     if (spinning) {
       setTransitionOn(false);
-      setRotation((r) => r + 360 * 20); // giro largo y rápido vía CSS (ver keyframes)
+      setRotation((r) => r + 360 * 20);
+      setBallRotation((r) => r - 360 * 26);
     }
   }, [spinning]);
 
@@ -59,12 +61,14 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     const pocketIndex = WHEEL_ORDER.indexOf(winningNumber);
     const pocketAngle = pocketIndex * SLICE_ANGLE;
     const currentMod = ((rotation % 360) + 360) % 360;
-    // rotamos hasta que la casilla ganadora quede bajo el puntero (arriba, 0deg),
-    // dando 4 vueltas extra de más para que se sienta el frenado
     const target = rotation - currentMod + 360 * 4 + (360 - pocketAngle);
+
+    const ballCurrentMod = ((ballRotation % 360) + 360) % 360;
+    const ballTarget = ballRotation - ballCurrentMod - 360 * 3;
 
     setTransitionOn(true);
     setRotation(target);
+    setBallRotation(ballTarget);
 
     const timeout = setTimeout(() => {
       onSettled && onSettled();
@@ -105,6 +109,22 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           <path key={n} d={slicePath(i)} fill={pocketColor(n)} stroke="var(--felt)" strokeWidth="0.5" />
         ))}
         <circle cx={CENTER} cy={CENTER} r={INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
+      </svg>
+
+      {/* bolita: orbita en dirección contraria a la rueda, en un anillo aparte */}
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: `rotate(${ballRotation}deg)`,
+          transition: transitionOn ? 'transform 2.5s cubic-bezier(0.25, 0.8, 0.3, 1)' : 'none',
+          animation: spinning && !transitionOn ? 'ball-spin-fast 0.45s linear infinite' : 'none',
+        }}
+      >
+        <circle cx={CENTER} cy={CENTER - OUTER_R + 4} r="4.5" fill="var(--parchment)" />
       </svg>
     </div>
   );

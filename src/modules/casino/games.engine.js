@@ -13,48 +13,73 @@ function colorOf(number) {
   return RED_NUMBERS.has(number) ? 'red' : 'black';
 }
 
-/**
- * bet: { type: 'straight' | 'red' | 'black' | 'even' | 'odd' | 'low' | 'high', value?: number }
- * Devuelve { winningNumber, color, won, multiplier }
- */
-function playRoulette(bet) {
+/** Columna real de la mesa (1, 2 o 3) para números 1-36. El 0 no pertenece a ninguna. */
+function columnOf(number) {
+  if (number === 0) return null;
+  return ((number - 1) % 3) + 1;
+}
+
+/** Docena real de la mesa (1: 1-12, 2: 13-24, 3: 25-36). El 0 no pertenece a ninguna. */
+function dozenOf(number) {
+  if (number === 0) return null;
+  return Math.ceil(number / 12);
+}
+
+/** Gira la rueda una sola vez. Puramente RNG, sin conocer las apuestas. */
+function spinRouletteWheel() {
   const winningNumber = crypto.randomInt(0, 37); // 0..36 inclusive
-  const color = colorOf(winningNumber);
+  return { winningNumber, color: colorOf(winningNumber) };
+}
 
-  let won = false;
-  let multiplier = 0;
-
+/**
+ * Resuelve UNA apuesta contra un número ya sorteado.
+ * bet: { type, value? }
+ *   - 'straight'  value: 0-36               paga 35:1 (mult 36)
+ *   - 'red' | 'black'                        paga 1:1  (mult 2)
+ *   - 'even' | 'odd'                         paga 1:1  (mult 2)
+ *   - 'low' (1-18) | 'high' (19-36)          paga 1:1  (mult 2)
+ *   - 'dozen'     value: 1|2|3               paga 2:1  (mult 3)
+ *   - 'column'    value: 1|2|3               paga 2:1  (mult 3)
+ * Devuelve { won, multiplier }.
+ */
+function resolveRouletteBet(bet, winningNumber, color) {
   switch (bet.type) {
-    case 'straight': // apuesta a un número exacto, paga 35:1
-      won = bet.value === winningNumber;
-      multiplier = won ? 36 : 0; // incluye el stake devuelto
-      break;
+    case 'straight': {
+      const won = bet.value === winningNumber;
+      return { won, multiplier: won ? 36 : 0 };
+    }
     case 'red':
-    case 'black':
-      won = color === bet.type;
-      multiplier = won ? 2 : 0;
-      break;
-    case 'even':
-      won = winningNumber !== 0 && winningNumber % 2 === 0;
-      multiplier = won ? 2 : 0;
-      break;
-    case 'odd':
-      won = winningNumber % 2 === 1;
-      multiplier = won ? 2 : 0;
-      break;
-    case 'low': // 1-18
-      won = winningNumber >= 1 && winningNumber <= 18;
-      multiplier = won ? 2 : 0;
-      break;
-    case 'high': // 19-36
-      won = winningNumber >= 19 && winningNumber <= 36;
-      multiplier = won ? 2 : 0;
-      break;
+    case 'black': {
+      const won = color === bet.type;
+      return { won, multiplier: won ? 2 : 0 };
+    }
+    case 'even': {
+      const won = winningNumber !== 0 && winningNumber % 2 === 0;
+      return { won, multiplier: won ? 2 : 0 };
+    }
+    case 'odd': {
+      const won = winningNumber % 2 === 1;
+      return { won, multiplier: won ? 2 : 0 };
+    }
+    case 'low': {
+      const won = winningNumber >= 1 && winningNumber <= 18;
+      return { won, multiplier: won ? 2 : 0 };
+    }
+    case 'high': {
+      const won = winningNumber >= 19 && winningNumber <= 36;
+      return { won, multiplier: won ? 2 : 0 };
+    }
+    case 'dozen': {
+      const won = dozenOf(winningNumber) === bet.value;
+      return { won, multiplier: won ? 3 : 0 };
+    }
+    case 'column': {
+      const won = columnOf(winningNumber) === bet.value;
+      return { won, multiplier: won ? 3 : 0 };
+    }
     default:
-      throw Object.assign(new Error('Tipo de apuesta de ruleta inválido'), { status: 400 });
+      throw Object.assign(new Error(`Tipo de apuesta de ruleta inválido: ${bet.type}`), { status: 400 });
   }
-
-  return { winningNumber, color, won, multiplier };
 }
 
 // =========================================================
@@ -98,4 +123,4 @@ function playSlots() {
   };
 }
 
-module.exports = { playRoulette, playSlots };
+module.exports = { spinRouletteWheel, resolveRouletteBet, playSlots, colorOf, columnOf, dozenOf };
