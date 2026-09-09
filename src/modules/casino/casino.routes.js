@@ -8,11 +8,14 @@ router.use(requireAuth);
 
 router.post('/play', async (req, res) => {
   try {
-    const { game, stake_cents, bet } = req.body;
+    const { game, stake_cents, bets } = req.body;
+    const normalizedBets = Array.isArray(bets)
+      ? bets.map((b) => ({ type: b.type, value: b.value, stakeCents: b.stake_cents }))
+      : undefined;
     const result = await casinoService.playRound(req.userId, {
       game,
       stakeCents: stake_cents,
-      bet,
+      bets: normalizedBets,
     });
     res.status(201).json(result);
   } catch (err) {
