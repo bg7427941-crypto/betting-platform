@@ -1,20 +1,5 @@
 /* =========================================================
-   TOKENS
-   Color:
-     --felt      #0F2D22  fondo base (verde fieltro de mesa, no negro puro)
-     --felt-2    #16392C  paneles/superficies elevadas
-     --line      #2C4F40  hairlines/divisores
-     --gold      #C9A227  acento principal (fichas, marcador de victoria)
-     --gold-dim  #8F7A2E  variante apagada del dorado (hover, secundario)
-     --brick     #A8402F  acento de pérdida/away/negativo
-     --parchment #F2ECDB  texto principal (cálido, no blanco puro)
-     --sage      #93A99C  texto secundario/muted
-   Type:
-     Fraunces      -> titulares, marcador (carácter de cartel de casino)
-     IBM Plex Sans -> texto de interfaz
-     IBM Plex Mono -> cuotas, saldos, cualquier número (tabular, aire a scoreboard)
-   Layout: alineado a la izquierda, paneles planos con borde de 1px,
-   sin sombras suaves ni radios grandes — ficha/ticket, no tarjeta SaaS.
+   TOKENS & DESIGN SYSTEM - PALCO PLATFORM
    ========================================================= */
 
 :root {
@@ -23,6 +8,7 @@
   --felt-3: #1e4536;
   --line: #2c4f40;
   --gold: #c9a227;
+  --gold-glow: rgba(201, 162, 39, 0.25);
   --gold-dim: #8f7a2e;
   --brick: #a8402f;
   --parchment: #f2ecdb;
@@ -31,45 +17,64 @@
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --border-radius: 6px;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
 }
 
 body {
   margin: 0;
   background:
+    radial-gradient(ellipse 1000px 600px at 20% -10%, rgba(201, 162, 39, 0.08), transparent 70%),
     repeating-linear-gradient(
       135deg,
-      rgba(201, 162, 39, 0.025) 0px,
-      rgba(201, 162, 39, 0.025) 1px,
+      rgba(201, 162, 39, 0.02) 0px,
+      rgba(201, 162, 39, 0.02) 1px,
       transparent 1px,
-      transparent 5px
+      transparent 6px
     ),
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(201, 162, 39, 0.06), transparent 60%),
     var(--felt);
   color: var(--parchment);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
 button {
   font-family: inherit;
+  border: none;
 }
 
-/* ---------- layout shell ---------- */
+/* Scrollbar estilizada */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--felt);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-dim);
+}
+
+/* ---------- LAYOUT SHELL ---------- */
 
 .shell {
   display: flex;
@@ -77,301 +82,370 @@ button {
 }
 
 .sidebar {
-  width: 220px;
+  width: 240px;
   flex-shrink: 0;
-  background: var(--felt-2);
+  background: linear-gradient(180deg, var(--felt-2) 0%, #102920 100%);
   border-right: 1px solid var(--line);
-  padding: 28px 20px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 36px;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
 }
 
 .brand {
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 22px;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.03em;
   color: var(--gold);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .nav a {
-  text-decoration: none;
   color: var(--sage);
-  padding: 9px 10px;
-  border-left: 2px solid transparent;
+  padding: 10px 14px;
+  border-left: 3px solid transparent;
   font-size: 14px;
-  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  font-weight: 500;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  transition: all 0.2s ease;
 }
 
 .nav a:hover {
   color: var(--parchment);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .nav a.active {
   color: var(--parchment);
   border-left-color: var(--gold);
-  background: rgba(201, 162, 39, 0.08);
+  background: linear-gradient(90deg, rgba(201, 162, 39, 0.15) 0%, transparent 100%);
 }
 
 .sidebar-wallet {
   margin-top: auto;
   border-top: 1px solid var(--line);
-  padding-top: 16px;
+  padding-top: 20px;
 }
 
 .sidebar-wallet .label {
   color: var(--sage);
   font-size: 12px;
-  text-transform: none;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-wallet .amount-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .sidebar-wallet .amount {
   font-family: var(--font-mono);
-  font-size: 20px;
-  color: var(--parchment);
-  font-variant-numeric: tabular-nums;
-}
-
-.chip-icon {
-  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold);
 }
 
 .main {
   flex: 1;
-  padding: 40px 48px;
-  max-width: 920px;
+  padding: 40px 56px;
+  max-width: 1020px;
 }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 600;
-  margin: 0 0 14px;
+  margin: 0 0 8px;
   position: relative;
-  padding-bottom: 14px;
+  display: inline-block;
 }
 
 .page-title::after {
   content: '';
   position: absolute;
   left: 0;
-  bottom: 0;
-  width: 42px;
+  bottom: -6px;
+  width: 36px;
   height: 3px;
   background: var(--gold);
+  box-shadow: 0 0 8px var(--gold-glow);
 }
 
 .page-sub {
   color: var(--sage);
-  margin: 0 0 32px;
-  max-width: 60ch;
+  margin: 12px 0 32px;
+  max-width: 65ch;
+  font-size: 14px;
 }
 
-/* ---------- panels & tickets ---------- */
+/* ---------- PANELES Y BOLETAS (TICKETS) ---------- */
 
 .panel {
   background: var(--felt-2);
   border: 1px solid var(--line);
-  outline: 1px solid rgba(201, 162, 39, 0.12);
+  border-radius: var(--border-radius);
+  outline: 1px solid rgba(201, 162, 39, 0.1);
   outline-offset: -5px;
-  padding: 22px 24px;
+  padding: 24px;
+  box-shadow: var(--shadow-panel);
 }
 
 .panel + .panel {
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .ticket {
   background: var(--felt-2);
   border: 1px solid var(--line);
-  padding: 16px 18px 16px 26px;
+  border-radius: var(--border-radius);
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   position: relative;
+  transition: border-color 0.2s ease, transform 0.15s ease;
 }
 
+.ticket:hover {
+  border-color: rgba(201, 162, 39, 0.4);
+}
+
+/* Estilizado punteado estilo boleto de apuestas */
 .ticket::before {
   content: '';
   position: absolute;
-  left: -1px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
   background-image: repeating-linear-gradient(
     to bottom,
-    var(--felt) 0px,
-    var(--felt) 6px,
-    var(--line) 6px,
-    var(--line) 12px
+    var(--gold) 0px,
+    var(--gold) 4px,
+    transparent 4px,
+    transparent 8px
   );
-  background-size: 1px 12px;
 }
 
-.ticket + .ticket {
-  border-top: none;
-}
-
-/* ---------- form elements ---------- */
+/* ---------- FORMULARIO Y BOTONES ---------- */
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .field label {
-  font-size: 13px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--sage);
+  font-weight: 500;
 }
 
 .field input,
 .field select {
-  background: var(--felt);
+  background: #091c15;
   border: 1px solid var(--line);
+  border-radius: var(--border-radius);
   color: var(--parchment);
-  padding: 10px 12px;
+  padding: 11px 14px;
   font-family: var(--font-body);
   font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .field input:focus,
 .field select:focus {
-  outline: 2px solid var(--gold);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-glow);
 }
 
 .btn {
-  background: var(--gold);
-  color: var(--felt);
-  border: none;
-  padding: 10px 18px;
+  background: linear-gradient(180deg, #d8b233 0%, var(--gold) 100%);
+  color: #0a1f17;
+  border-radius: var(--border-radius);
+  padding: 11px 20px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.08s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
 }
 
-.btn:hover {
-  background: var(--gold-dim);
+.btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px var(--gold-glow);
 }
 
-.btn:active {
-  transform: scale(0.97);
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn:disabled {
   background: var(--line);
   color: var(--sage);
   cursor: not-allowed;
-  transform: none;
+  opacity: 0.6;
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--parchment);
   border: 1px solid var(--line);
+  border-radius: var(--border-radius);
   padding: 10px 18px;
   font-size: 14px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.08s ease;
+  transition: all 0.15s ease;
 }
 
 .btn-ghost:hover {
   border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(201, 162, 39, 0.05);
 }
 
-.btn-ghost:active {
-  transform: scale(0.97);
-}
-
-/* ---------- odds / numbers ---------- */
+/* ---------- BOTONES DE CUOTAS ---------- */
 
 .odds-btn {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  background: var(--felt);
+  background: #091c15;
   border: 1px solid var(--line);
+  border-radius: var(--border-radius);
   color: var(--parchment);
-  padding: 8px 14px;
+  padding: 10px 14px;
   cursor: pointer;
-  min-width: 64px;
+  min-width: 72px;
   text-align: center;
-  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.08s ease;
+  transition: all 0.15s ease;
 }
 
 .odds-btn:hover {
   border-color: var(--gold);
-}
-
-.odds-btn:active {
-  transform: scale(0.96);
+  transform: translateY(-1px);
 }
 
 .odds-btn.selected {
   border-color: var(--gold);
-  background: rgba(201, 162, 39, 0.14);
-  color: var(--gold);
+  background: var(--gold);
+  color: var(--felt);
+  font-weight: 700;
+  box-shadow: 0 0 10px var(--gold-glow);
 }
+
+/* ---------- TRAGAMONEDAS (SLOTS) ---------- */
+
+.reel-window {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  background: #081a13;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 15px var(--gold-glow);
+}
+
+.reel-slot {
+  width: 76px;
+  height: 88px;
+  background: linear-gradient(180deg, #122d23 0%, var(--felt-2) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  user-select: none;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.reel-spinning {
+  animation: reelBlur 0.12s infinite linear;
+  filter: blur(1.5px);
+  opacity: 0.7;
+}
+
+@keyframes reelBlur {
+  0% { transform: translateY(-8px); }
+  50% { transform: translateY(8px); }
+  100% { transform: translateY(-8px); }
+}
+
+.wheel-spinning {
+  animation: wheelSpin 0.8s infinite linear;
+}
+
+@keyframes wheelSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.result-reveal {
+  animation: fadeInScale 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- UTILIDADES & ESTADOS ---------- */
 
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.text-gold {
-  color: var(--gold);
-}
-
-.text-brick {
-  color: var(--brick);
-}
-
-.text-sage {
-  color: var(--sage);
-}
+.text-gold { color: var(--gold); }
+.text-brick { color: var(--brick); }
+.text-sage { color: var(--sage); }
 
 .divider {
   height: 1px;
   background: var(--line);
-  margin: 16px 0;
+  margin: 18px 0;
   border: none;
 }
 
 .error-banner {
   background: rgba(168, 64, 47, 0.15);
   border: 1px solid var(--brick);
-  color: var(--parchment);
-  padding: 12px 14px;
-  margin-bottom: 16px;
-  font-size: 14px;
+  border-radius: var(--border-radius);
+  color: #f7b5ab;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
 }
 
 .empty-state {
   color: var(--sage);
-  padding: 40px 0;
-  text-align: left;
+  padding: 48px 0;
+  text-align: center;
 }
 
-/* ---------- auth screens ---------- */
+/* ---------- PANTALLAS AUTENTICACIÓN ---------- */
 
 .auth-shell {
-  min-height: 100%;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -380,16 +454,38 @@ button {
 
 .auth-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
+  background: var(--felt-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 .auth-card .brand {
-  font-size: 28px;
-  margin-bottom: 4px;
+  font-size: 32px;
+  text-align: center;
+  margin-bottom: 6px;
 }
 
 .auth-card .tagline {
   color: var(--sage);
   margin: 0 0 28px;
   font-size: 14px;
+  text-align: center;
+}
+
+/* Adaptación responsive básica */
+@media (max-width: 768px) {
+  .shell {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    padding: 16px 20px;
+    gap: 16px;
+  }
+  .main {
+    padding: 24px 20px;
+  }
 }
