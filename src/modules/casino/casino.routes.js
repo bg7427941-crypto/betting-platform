@@ -1,12 +1,13 @@
 const express = require('express');
 const { requireAuth } = require('../../middleware/auth');
+const { casinoPlayLimiter } = require('../../middleware/rateLimit');
 const { query } = require('../../db');
 const casinoService = require('./casino.service');
 
 const router = express.Router();
 router.use(requireAuth);
 
-router.post('/play', async (req, res) => {
+router.post('/play', casinoPlayLimiter, async (req, res) => {
   try {
     const { game, stake_cents, bets } = req.body;
     const normalizedBets = Array.isArray(bets)

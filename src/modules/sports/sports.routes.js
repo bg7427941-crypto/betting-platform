@@ -63,8 +63,7 @@ router.post('/admin/events/:id/odds', requireAuth, requireAdmin, async (req, res
 router.post('/admin/events/:id/finish', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { result } = req.body; // 'home' | 'away' | 'draw'
-    await eventsService.finishEvent(req.params.id, result);
-    const settlement = await settlementService.settleEvent(req.params.id);
+    const settlement = await settlementService.finishAndSettleEvent(req.params.id, result);
     res.json(settlement);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });

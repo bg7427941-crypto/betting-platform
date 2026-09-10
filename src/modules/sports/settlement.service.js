@@ -1,28 +1,40 @@
 const { withTransaction } = require('../../db');
 
+const VALID_RESULTS = new Set(['home', 'away', 'draw']);
+
 /**
- * Liquida todas las apuestas pendientes de un evento ya finalizado.
+ * Marca el evento como finalizado y liquida todas sus apuestas pendientes,
+ * todo dentro de UNA sola transacción SQL (antes eran dos pasos separados:
+ * finishEvent() y luego settleEvent(), lo que podía dejar el evento
+ * "finished" pero sin liquidar si el segundo paso fallaba a mitad de camino).
  * - Si la selección de la apuesta coincide con el resultado -> gana, se paga stake * price.
  * - Si no coincide -> pierde, no se paga nada (el stake ya se descontó al apostar).
- * Se corre dentro de una transacción para que el pago de cada apuesta y su
- * transacción de wallet queden consistentes.
  */
-async function settleEvent(eventId) {
+async function finishAndSettleEvent(eventId, result) {
+  if (!VALID_RESULTS.has(result)) {
+    throw Object.assign(
+      new Error(`result debe ser uno de: ${[...VALID_RESULTS].join(', ')}`),
+      { status: 400 }
+    );
+  }
+
   return withTransaction(async (client) => {
     const eventResult = await client.query(
-      `SELECT id, status, result FROM sport_events WHERE id = $1 FOR UPDATE`,
+      `SELECT id, status FROM sport_events WHERE id = $1 FOR UPDATE`,
       [eventId]
     );
     const event = eventResult.rows[0];
     if (!event) {
       throw Object.assign(new Error('Evento no encontrado'), { status: 404 });
     }
-    if (event.status !== 'finished' || !event.result) {
-      throw Object.assign(
-        new Error('El evento debe estar finalizado con un resultado antes de liquidar'),
-        { status: 400 }
-      );
+    if (event.status === 'finished') {
+      throw Object.assign(new Error('Este evento ya fue finalizado'), { status: 409 });
     }
+
+    await client.query(
+      `UPDATE sport_events SET status = 'finished', result = $2 WHERE id = $1`,
+      [eventId, result]
+    );
 
     // Apuestas pendientes de este evento, con la selección de su cuota
     const betsResult = await client.query(
@@ -37,7 +49,7 @@ async function settleEvent(eventId) {
     const settled = [];
 
     for (const bet of betsResult.rows) {
-      const won = bet.selection === event.result;
+      const won = bet.selection === result;
       const payoutCents = won
         ? Math.round(Number(bet.stake_cents) * Number(bet.price_taken))
         : 0;
@@ -72,8 +84,8 @@ async function settleEvent(eventId) {
       settled.push({ bet_id: bet.id, status: won ? 'won' : 'lost', payout_cents: payoutCents });
     }
 
-    return { event_id: eventId, settled_count: settled.length, settled };
+    return { event_id: eventId, result, settled_count: settled.length, settled };
   });
 }
 
-module.exports = { settleEvent };
+module.exports = { finishAndSettleEvent };

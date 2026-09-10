@@ -1,9 +1,10 @@
 const express = require('express');
 const authService = require('./auth.service');
+const { loginLimiter, registerLimiter } = require('../../middleware/rateLimit');
 
 const router = express.Router();
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { user, token } = await authService.register(req.body);
     res.status(201).json({ user, token });
@@ -12,7 +13,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { user, token } = await authService.login(req.body);
     res.json({ user, token });

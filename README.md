@@ -43,9 +43,12 @@ npm run dev        # levanta el servidor en modo desarrollo
 ⚠️ Las rutas `/admin/*` ahora requieren rol `admin` (ver sección "Roles de administrador" abajo).
 
 ### Casino (requieren header `Authorization: Bearer <token>`)
-- `POST /api/casino/play` — `{ game: 'roulette'|'slots', stake_cents, bet }`
-  - Ruleta: `bet = { type: 'straight'|'red'|'black'|'even'|'odd'|'low'|'high', value? }`
-  - Slots: no requiere `bet`, gira 3 rodillos automáticamente
+- `POST /api/casino/play` — `{ game: 'roulette'|'slots', ... }`
+  - Ruleta: `{ game: 'roulette', bets: [{ type, value?, stake_cents }, ...] }`
+    (un array — se puede apostar a varias combinaciones en un mismo giro;
+    `type` es `'straight'|'red'|'black'|'even'|'odd'|'low'|'high'|'dozen'|'column'`,
+    `value` solo aplica a `straight` (0-36), `dozen` (1-3) y `column` (1-3))
+  - Slots: `{ game: 'slots', stake_cents }` — gira 3 rodillos automáticamente
 - `GET  /api/casino/history` — historial de rondas jugadas
 
 ## Roles de administrador
