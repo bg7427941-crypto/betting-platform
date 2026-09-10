@@ -396,28 +396,6 @@ button {
 
 /* ---------- animaciones: casino ---------- */
 
-@keyframes wheel-spin-fast {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.wheel-spinning {
-  animation: wheel-spin-fast 0.7s linear infinite;
-}
-
-@keyframes ball-spin-fast {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(-360deg);
-  }
-}
-
 .pocket-winner {
   animation: pocket-glow-pulse 0.9s ease-in-out infinite;
 }
