@@ -36,11 +36,17 @@ npm run dev        # levanta el servidor en modo desarrollo
 - `GET  /api/sports/events` — eventos próximos/en vivo
 - `GET  /api/sports/events/:id` — evento con sus cuotas
 - `POST /api/sports/bets` — `{ eventId, oddsId, stake_cents }` (coloca apuesta, descuenta saldo)
+- `GET  /api/sports/admin/events` — todos los eventos (cualquier estado), con conteo de cuotas y apuestas pendientes
 - `POST /api/sports/admin/events` — `{ sport, homeTeam, awayTeam, startsAt }` (crear evento)
 - `POST /api/sports/admin/events/:id/odds` — `{ market, selection, price }` (agregar cuota)
-- `POST /api/sports/admin/events/:id/finish` — `{ result }` (marca resultado y liquida todas las apuestas automáticamente)
+- `POST /api/sports/admin/events/:id/finish` — `{ result }` (marca resultado y liquida todas las apuestas automáticamente, todo en una transacción)
 
 ⚠️ Las rutas `/admin/*` ahora requieren rol `admin` (ver sección "Roles de administrador" abajo).
+
+### Admin (requieren rol `admin`)
+- `GET /api/admin/summary` — resumen para el dashboard: usuarios activos,
+  saldo total en circulación, apuestas pendientes (conteo + monto), eventos
+  por estado, y resultado neto del casino del día.
 
 ### Casino (requieren header `Authorization: Bearer <token>`)
 - `POST /api/casino/play` — `{ game: 'roulette'|'slots', ... }`
@@ -64,7 +70,8 @@ npm run promote-admin -- correo@ejemplo.com
 Nota: el rol viaja dentro del JWT. Si le quitas el rol admin a alguien,
 su token existente lo seguirá teniendo hasta que expire — para revocación
 inmediata necesitarías una lista de tokens invalidados o bajar el
-`JWT_EXPIRES_IN`.
+`JWT_EXPIRES_IN`. Después de promover a un usuario, tiene que cerrar
+sesión y volver a entrar para que el nuevo token incluya el rol.
 
 ## Frontend (React + Vite)
 
@@ -73,6 +80,10 @@ Está en `/frontend`. Consume la API del backend, con las páginas:
 - **Deportes** — lista de eventos, cuotas expandibles, boleta de apuesta.
 - **Casino** — ruleta (rojo/negro, par/impar, alto/bajo) y tragamonedas.
 - **Billetera** — saldo, depósito/retiro simulado, historial.
+- **Admin** (solo visible/accesible con rol `admin`) — dashboard con
+  métricas (usuarios, saldo en circulación, apuestas pendientes, resultado
+  neto del casino hoy), formulario para crear eventos, y por cada evento:
+  agregar cuotas 1x2 y finalizar/liquidar con un resultado.
 
 Diseño: paleta "tapete de casino" (verde fieltro + dorado), tipografía
 Fraunces para títulos e IBM Plex Sans/Mono para interfaz y números.

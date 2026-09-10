@@ -10,6 +10,31 @@ async function listUpcomingEvents() {
   return result.rows;
 }
 
+/**
+ * Uso administrativo: todos los eventos sin importar estado (incluye
+ * finalizados/cancelados), con el conteo de cuotas activas y apuestas
+ * pendientes de cada uno — lo que necesita el panel de admin para decidir
+ * qué evento cargar cuotas o finalizar.
+ */
+async function listAllEventsAdmin() {
+  const result = await query(
+    `SELECT
+       e.id, e.sport, e.home_team, e.away_team, e.starts_at, e.status, e.result,
+       COUNT(DISTINCT o.id) FILTER (WHERE o.is_active) AS odds_count,
+       COUNT(DISTINCT b.id) FILTER (WHERE b.status = 'pending') AS pending_bets_count
+     FROM sport_events e
+     LEFT JOIN odds o ON o.event_id = e.id
+     LEFT JOIN bets b ON b.event_id = e.id
+     GROUP BY e.id
+     ORDER BY e.starts_at DESC`
+  );
+  return result.rows.map((row) => ({
+    ...row,
+    odds_count: Number(row.odds_count),
+    pending_bets_count: Number(row.pending_bets_count),
+  }));
+}
+
 async function getEventWithOdds(eventId) {
   const eventResult = await query(
     `SELECT id, sport, home_team, away_team, starts_at, status, result
@@ -107,6 +132,7 @@ async function setOdds(eventId, market, selection, price) {
 
 module.exports = {
   listUpcomingEvents,
+  listAllEventsAdmin,
   getEventWithOdds,
   createEvent,
   setOdds,

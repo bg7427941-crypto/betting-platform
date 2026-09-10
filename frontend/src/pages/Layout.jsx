@@ -27,6 +27,11 @@ export default function Layout() {
           <NavLink to="/wallet" className={({ isActive }) => (isActive ? 'active' : '')}>
             Billetera
           </NavLink>
+          {user?.role === 'admin' && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Admin
+            </NavLink>
+          )}
         </nav>
 
         <div className="sidebar-wallet">

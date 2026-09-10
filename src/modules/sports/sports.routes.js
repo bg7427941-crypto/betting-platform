@@ -40,6 +40,15 @@ router.post('/bets', requireAuth, async (req, res) => {
 });
 
 // ---------- Admin (protegidas con requireAdmin) ----------
+router.get('/admin/events', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const events = await eventsService.listAllEventsAdmin();
+    res.json(events);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 router.post('/admin/events', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { sport, homeTeam, awayTeam, startsAt } = req.body;

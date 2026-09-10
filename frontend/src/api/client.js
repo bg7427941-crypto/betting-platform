@@ -41,6 +41,14 @@ export const api = {
 
   playCasino: (payload) => request('/api/casino/play', { method: 'POST', body: payload }),
   casinoHistory: () => request('/api/casino/history'),
+
+  adminSummary: () => request('/api/admin/summary'),
+  adminListEvents: () => request('/api/sports/admin/events'),
+  adminCreateEvent: (payload) => request('/api/sports/admin/events', { method: 'POST', body: payload }),
+  adminSetOdds: (eventId, payload) =>
+    request(`/api/sports/admin/events/${eventId}/odds`, { method: 'POST', body: payload }),
+  adminFinishEvent: (eventId, result) =>
+    request(`/api/sports/admin/events/${eventId}/finish`, { method: 'POST', body: { result } }),
 };
 
 export { getToken, API_URL };

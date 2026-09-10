@@ -7,6 +7,7 @@ import Layout from './pages/Layout';
 import Sportsbook from './pages/Sportsbook';
 import Casino from './pages/Casino';
 import Wallet from './pages/Wallet';
+import Admin from './pages/Admin';
 
 function PrivateArea() {
   const { user, loading } = useAuth();
@@ -18,6 +19,12 @@ function PrivateArea() {
       <Layout />
     </WalletProvider>
   );
+}
+
+function RequireAdmin({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
 }
 
 function PublicOnly({ children }) {
@@ -38,6 +45,7 @@ export default function App() {
           <Route index element={<Sportsbook />} />
           <Route path="casino" element={<Casino />} />
           <Route path="wallet" element={<Wallet />} />
+          <Route path="admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
         </Route>
       </Routes>
     </AuthProvider>
