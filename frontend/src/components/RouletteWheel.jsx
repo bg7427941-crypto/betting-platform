@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Orden real de los números en una ruleta europea (37 casillas)
 export const WHEEL_ORDER = [
@@ -20,6 +20,11 @@ const SIZE = 220;
 const CENTER = SIZE / 2;
 const OUTER_R = 104;
 const INNER_R = 70;
+
+// tiempo mínimo que la rueda gira "a ciegas" antes de poder empezar a frenar,
+// para que el giro se vea aunque el servidor responda casi al instante (localhost)
+const MIN_SPIN_MS = 1100;
+const SETTLE_MS = 2600;
 
 function polarToXY(angleDeg, radius) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -45,37 +50,57 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
   const [rotation, setRotation] = useState(0);
   const [ballRotation, setBallRotation] = useState(0);
   const [transitionOn, setTransitionOn] = useState(false);
+  const spinStartedAt = useRef(null);
+  const settleTimers = useRef([]);
+
+  function clearTimers() {
+    settleTimers.current.forEach(clearTimeout);
+    settleTimers.current = [];
+  }
 
   // Giro indefinido mientras se espera el resultado (rueda y bola en direcciones opuestas)
   useEffect(() => {
     if (spinning) {
+      clearTimers();
+      spinStartedAt.current = Date.now();
       setTransitionOn(false);
       setRotation((r) => r + 360 * 20);
       setBallRotation((r) => r - 360 * 26);
     }
   }, [spinning]);
 
-  // Frenado hacia el número ganador
+  // Frenado hacia el número ganador, respetando un tiempo mínimo de giro visible
   useEffect(() => {
     if (winningNumber === null || winningNumber === undefined) return;
-    const pocketIndex = WHEEL_ORDER.indexOf(winningNumber);
-    const pocketAngle = pocketIndex * SLICE_ANGLE;
-    const currentMod = ((rotation % 360) + 360) % 360;
-    const target = rotation - currentMod + 360 * 4 + (360 - pocketAngle);
 
-    const ballCurrentMod = ((ballRotation % 360) + 360) % 360;
-    const ballTarget = ballRotation - ballCurrentMod - 360 * 3;
+    const elapsed = spinStartedAt.current ? Date.now() - spinStartedAt.current : MIN_SPIN_MS;
+    const waitBeforeSettling = Math.max(0, MIN_SPIN_MS - elapsed);
 
-    setTransitionOn(true);
-    setRotation(target);
-    setBallRotation(ballTarget);
+    const settleTimer = setTimeout(() => {
+      setRotation((currentRotation) => {
+        const pocketIndex = WHEEL_ORDER.indexOf(winningNumber);
+        const pocketAngle = pocketIndex * SLICE_ANGLE;
+        const currentMod = ((currentRotation % 360) + 360) % 360;
+        const target = currentRotation - currentMod + 360 * 4 + (360 - pocketAngle);
+        return target;
+      });
+      setBallRotation((currentBallRotation) => {
+        const ballCurrentMod = ((currentBallRotation % 360) + 360) % 360;
+        return currentBallRotation - ballCurrentMod - 360 * 3;
+      });
+      setTransitionOn(true);
+    }, waitBeforeSettling);
 
-    const timeout = setTimeout(() => {
+    const doneTimer = setTimeout(() => {
       onSettled && onSettled();
-    }, 2600);
-    return () => clearTimeout(timeout);
+    }, waitBeforeSettling + SETTLE_MS);
+
+    settleTimers.current.push(settleTimer, doneTimer);
+    return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winningNumber]);
+
+  useEffect(() => clearTimers, []);
 
   return (
     <div style={{ position: 'relative', width: SIZE, height: SIZE, margin: '0 auto' }}>
