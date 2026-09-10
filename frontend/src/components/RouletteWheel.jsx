@@ -131,7 +131,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       stopTicking();
       setRotation((current) => {
         const pocketIndex = WHEEL_ORDER.indexOf(winningNumber);
-        const pocketAngle = pocketIndex * SLICE_ANGLE;
+        const pocketAngle = pocketIndex * SLICE_ANGLE + SLICE_ANGLE / 2; // centro de la casilla, no el borde
         const currentMod = ((current % 360) + 360) % 360;
         return current - currentMod + 360 * 4 + (360 - pocketAngle);
       });
