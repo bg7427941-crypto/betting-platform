@@ -16,15 +16,20 @@ function pocketColor(n) {
 }
 
 const SLICE_ANGLE = 360 / WHEEL_ORDER.length;
-const SIZE = 220;
+const SIZE = 300;
 const CENTER = SIZE / 2;
-const OUTER_R = 104;
-const INNER_R = 70;
+const OUTER_R = 142;
+const INNER_R = 96;
+const NUMBER_R = (OUTER_R + INNER_R) / 2; // radio donde van los números, mitad de cada casilla
+
+const BALL_OUTER_R = OUTER_R - 6; // radio de la bolita mientras gira, cerca del borde
+const BALL_LANDED_R = NUMBER_R; // radio al que "cae" la bolita, sobre el mismo anillo que los números
 
 // tiempo mínimo que la rueda gira "a ciegas" antes de poder empezar a frenar,
 // para que el giro se vea aunque el servidor responda casi al instante (localhost)
-const MIN_SPIN_MS = 1100;
-const SETTLE_MS = 2600;
+const MIN_SPIN_MS = 900;
+const SETTLE_MS = 2400;
+const SETTLE_SECONDS = SETTLE_MS / 1000;
 
 function polarToXY(angleDeg, radius) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -49,6 +54,7 @@ function slicePath(index) {
 export function RouletteWheel({ spinning, winningNumber, onSettled }) {
   const [rotation, setRotation] = useState(0);
   const [ballRotation, setBallRotation] = useState(0);
+  const [ballRadius, setBallRadius] = useState(BALL_OUTER_R);
   const [transitionOn, setTransitionOn] = useState(false);
   const [landed, setLanded] = useState(false);
   const spinStartedAt = useRef(null);
@@ -66,12 +72,15 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       spinStartedAt.current = Date.now();
       setTransitionOn(false);
       setLanded(false);
+      setBallRadius(BALL_OUTER_R);
       setRotation((r) => r + 360 * 20);
       setBallRotation((r) => r - 360 * 26);
     }
   }, [spinning]);
 
-  // Frenado hacia el número ganador, respetando un tiempo mínimo de giro visible
+  // Frenado hacia el número ganador, respetando un tiempo mínimo de giro visible.
+  // La bolita gira Y cae hacia adentro (menor radio) al mismo tiempo que la rueda frena,
+  // aterrizando exactamente sobre la casilla ganadora.
   useEffect(() => {
     if (winningNumber === null || winningNumber === undefined) return;
 
@@ -90,6 +99,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
         const ballCurrentMod = ((currentBallRotation % 360) + 360) % 360;
         return currentBallRotation - ballCurrentMod - 360 * 3;
       });
+      setBallRadius(BALL_LANDED_R);
       setTransitionOn(true);
     }, waitBeforeSettling);
 
@@ -105,22 +115,20 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
 
   useEffect(() => clearTimers, []);
 
-  useEffect(() => clearTimers, []);
-
   return (
     <div style={{ position: 'relative', width: SIZE, height: SIZE, margin: '0 auto' }}>
       {/* puntero fijo */}
       <div
         style={{
           position: 'absolute',
-          top: -6,
+          top: -8,
           left: '50%',
           transform: 'translateX(-50%)',
           width: 0,
           height: 0,
-          borderLeft: '7px solid transparent',
-          borderRight: '7px solid transparent',
-          borderTop: '12px solid var(--gold)',
+          borderLeft: '9px solid transparent',
+          borderRight: '9px solid transparent',
+          borderTop: '15px solid var(--gold)',
           zIndex: 2,
         }}
       />
@@ -131,27 +139,45 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
         className={spinning && !transitionOn ? 'wheel-spinning' : ''}
         style={{
           transform: `rotate(${rotation}deg)`,
-          transition: transitionOn ? 'transform 2.5s cubic-bezier(0.15, 0.85, 0.25, 1)' : 'none',
+          transition: transitionOn ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.15, 0.85, 0.25, 1)` : 'none',
         }}
       >
-        <circle cx={CENTER} cy={CENTER} r={OUTER_R + 6} fill="none" stroke="var(--gold)" strokeWidth="2" />
+        <circle cx={CENTER} cy={CENTER} r={OUTER_R + 8} fill="none" stroke="var(--gold)" strokeWidth="2" />
         {WHEEL_ORDER.map((n, i) => {
           const isWinner = landed && n === winningNumber;
+          const midAngle = i * SLICE_ANGLE + SLICE_ANGLE / 2;
+          const [tx, ty] = polarToXY(midAngle, NUMBER_R);
           return (
-            <path
-              key={n}
-              d={slicePath(i)}
-              fill={pocketColor(n)}
-              stroke={isWinner ? 'var(--gold)' : 'var(--felt)'}
-              strokeWidth={isWinner ? 2.5 : 0.5}
-              className={isWinner ? 'pocket-winner' : ''}
-            />
+            <g key={n}>
+              <path
+                d={slicePath(i)}
+                fill={pocketColor(n)}
+                stroke={isWinner ? 'var(--gold)' : 'var(--felt)'}
+                strokeWidth={isWinner ? 2.5 : 0.5}
+                className={isWinner ? 'pocket-winner' : ''}
+              />
+              <text
+                x={tx}
+                y={ty}
+                transform={`rotate(${midAngle}, ${tx}, ${ty})`}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="11"
+                fontFamily="var(--font-mono)"
+                fill="var(--parchment)"
+                stroke="rgba(0,0,0,0.4)"
+                strokeWidth="2"
+                paintOrder="stroke"
+              >
+                {n}
+              </text>
+            </g>
           );
         })}
         <circle cx={CENTER} cy={CENTER} r={INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
       </svg>
 
-      {/* bolita: orbita en dirección contraria a la rueda, en un anillo aparte */}
+      {/* bolita: orbita en dirección contraria a la rueda y cae de radio al aterrizar */}
       <svg
         width={SIZE}
         height={SIZE}
@@ -160,11 +186,17 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           position: 'absolute',
           inset: 0,
           transform: `rotate(${ballRotation}deg)`,
-          transition: transitionOn ? 'transform 2.5s cubic-bezier(0.25, 0.8, 0.3, 1)' : 'none',
-          animation: spinning && !transitionOn ? 'ball-spin-fast 0.45s linear infinite' : 'none',
+          transition: transitionOn ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.25, 0.8, 0.3, 1)` : 'none',
+          animation: spinning && !transitionOn ? 'ball-spin-fast 0.4s linear infinite' : 'none',
         }}
       >
-        <circle cx={CENTER} cy={CENTER - OUTER_R + 4} r="4.5" fill="var(--parchment)" />
+        <circle
+          cx={CENTER}
+          cy={CENTER - ballRadius}
+          r="5.5"
+          fill="var(--parchment)"
+          style={{ transition: transitionOn ? `cy ${SETTLE_SECONDS}s cubic-bezier(0.3, 0.7, 0.4, 1)` : 'none' }}
+        />
       </svg>
 
       {landed && winningNumber !== null && winningNumber !== undefined && (
