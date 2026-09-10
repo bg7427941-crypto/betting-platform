@@ -47,8 +47,17 @@ export const api = {
   adminCreateEvent: (payload) => request('/api/sports/admin/events', { method: 'POST', body: payload }),
   adminSetOdds: (eventId, payload) =>
     request(`/api/sports/admin/events/${eventId}/odds`, { method: 'POST', body: payload }),
+  adminCalculateOdds: (eventId, marginRate) =>
+    request(`/api/sports/admin/events/${eventId}/odds/auto`, {
+      method: 'POST',
+      body: marginRate !== undefined ? { marginRate } : {},
+    }),
   adminFinishEvent: (eventId, result) =>
     request(`/api/sports/admin/events/${eventId}/finish`, { method: 'POST', body: { result } }),
+
+  adminListTeams: (sport) => request(`/api/admin/teams${sport ? `?sport=${sport}` : ''}`),
+  adminCreateTeam: (payload) => request('/api/admin/teams', { method: 'POST', body: payload }),
+  adminUpdateTeam: (id, payload) => request(`/api/admin/teams/${id}`, { method: 'PATCH', body: payload }),
 };
 
 export { getToken, API_URL };

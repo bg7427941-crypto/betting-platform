@@ -6,6 +6,7 @@ const walletRoutes = require('./modules/wallet/wallet.routes');
 const sportsRoutes = require('./modules/sports/sports.routes');
 const casinoRoutes = require('./modules/casino/casino.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
+const teamsRoutes = require('./modules/teams/teams.routes');
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/sports', sportsRoutes);
 app.use('/api/casino', casinoRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/teams', teamsRoutes);
 
 // Manejo de errores no capturados
 app.use((err, req, res, next) => {

@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const eventsService = require('./events.service');
 const settlementService = require('./settlement.service');
+const autoOddsService = require('./auto-odds.service');
 const betsService = require('../bets/bets.service');
 
 const router = express.Router();
@@ -51,8 +52,8 @@ router.get('/admin/events', requireAuth, requireAdmin, async (req, res) => {
 
 router.post('/admin/events', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { sport, homeTeam, awayTeam, startsAt } = req.body;
-    const event = await eventsService.createEvent({ sport, homeTeam, awayTeam, startsAt });
+    const { sport, homeTeam, awayTeam, startsAt, homeTeamId, awayTeamId } = req.body;
+    const event = await eventsService.createEvent({ sport, homeTeam, awayTeam, startsAt, homeTeamId, awayTeamId });
     res.status(201).json(event);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
@@ -64,6 +65,18 @@ router.post('/admin/events/:id/odds', requireAuth, requireAdmin, async (req, res
     const { market, selection, price } = req.body;
     const odds = await eventsService.setOdds(req.params.id, market, selection, price);
     res.status(201).json(odds);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/admin/events/:id/odds/auto', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { marginRate } = req.body;
+    const result = await autoOddsService.calculateAndSaveOdds(req.params.id, {
+      marginRate: marginRate !== undefined ? Number(marginRate) : undefined,
+    });
+    res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

@@ -1,4 +1,5 @@
 const { query } = require('../../db');
+const teamsService = require('../teams/teams.service');
 
 async function listUpcomingEvents() {
   const result = await query(
@@ -19,7 +20,8 @@ async function listUpcomingEvents() {
 async function listAllEventsAdmin() {
   const result = await query(
     `SELECT
-       e.id, e.sport, e.home_team, e.away_team, e.starts_at, e.status, e.result,
+       e.id, e.sport, e.home_team, e.away_team, e.home_team_id, e.away_team_id,
+       e.starts_at, e.status, e.result,
        COUNT(DISTINCT o.id) FILTER (WHERE o.is_active) AS odds_count,
        COUNT(DISTINCT b.id) FILTER (WHERE b.status = 'pending') AS pending_bets_count
      FROM sport_events e
@@ -37,7 +39,7 @@ async function listAllEventsAdmin() {
 
 async function getEventWithOdds(eventId) {
   const eventResult = await query(
-    `SELECT id, sport, home_team, away_team, starts_at, status, result
+    `SELECT id, sport, home_team, away_team, home_team_id, away_team_id, starts_at, status, result
      FROM sport_events WHERE id = $1`,
     [eventId]
   );
@@ -64,15 +66,52 @@ function isNonEmptyString(value, maxLength) {
 /**
  * Uso administrativo: crear un evento manualmente (mientras no tengas
  * integrada una API externa de resultados/cuotas).
+ *
+ * homeTeamId/awayTeamId son opcionales: si se pasan, el evento queda
+ * vinculado a esos equipos registrados (y homeTeam/awayTeam se derivan
+ * automáticamente de sus nombres) — eso es lo que permite luego calcular
+ * cuotas automáticamente. Si no se pasan, el evento se crea solo con los
+ * nombres de texto, como antes.
  */
-async function createEvent({ sport, homeTeam, awayTeam, startsAt }) {
-  if (!isNonEmptyString(sport, 50) || !isNonEmptyString(homeTeam, 100) || !isNonEmptyString(awayTeam, 100)) {
+async function createEvent({ sport, homeTeam, awayTeam, startsAt, homeTeamId, awayTeamId }) {
+  if (!isNonEmptyString(sport, 50)) {
+    throw Object.assign(new Error('sport es obligatorio'), { status: 400 });
+  }
+
+  let resolvedHomeTeam = homeTeam;
+  let resolvedAwayTeam = awayTeam;
+
+  if (homeTeamId || awayTeamId) {
+    if (!homeTeamId || !awayTeamId) {
+      throw Object.assign(
+        new Error('Si vinculas equipos registrados, debes pasar homeTeamId y awayTeamId'),
+        { status: 400 }
+      );
+    }
+    if (homeTeamId === awayTeamId) {
+      throw Object.assign(new Error('homeTeamId y awayTeamId no pueden ser el mismo equipo'), { status: 400 });
+    }
+    const [homeTeamRow, awayTeamRow] = await Promise.all([
+      teamsService.getTeam(homeTeamId),
+      teamsService.getTeam(awayTeamId),
+    ]);
+    if (!homeTeamRow || !awayTeamRow) {
+      throw Object.assign(new Error('homeTeamId o awayTeamId no existen'), { status: 404 });
+    }
+    if (homeTeamRow.sport !== sport || awayTeamRow.sport !== sport) {
+      throw Object.assign(new Error('Ambos equipos deben ser del mismo deporte que el evento'), { status: 400 });
+    }
+    resolvedHomeTeam = homeTeamRow.name;
+    resolvedAwayTeam = awayTeamRow.name;
+  }
+
+  if (!isNonEmptyString(resolvedHomeTeam, 100) || !isNonEmptyString(resolvedAwayTeam, 100)) {
     throw Object.assign(
-      new Error('sport, homeTeam y awayTeam son obligatorios y deben ser texto no vacío'),
+      new Error('homeTeam y awayTeam son obligatorios y deben ser texto no vacío'),
       { status: 400 }
     );
   }
-  if (homeTeam.trim() === awayTeam.trim()) {
+  if (resolvedHomeTeam.trim() === resolvedAwayTeam.trim()) {
     throw Object.assign(new Error('homeTeam y awayTeam no pueden ser el mismo equipo'), { status: 400 });
   }
 
@@ -85,10 +124,10 @@ async function createEvent({ sport, homeTeam, awayTeam, startsAt }) {
   }
 
   const result = await query(
-    `INSERT INTO sport_events (sport, home_team, away_team, starts_at)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, sport, home_team, away_team, starts_at, status`,
-    [sport, homeTeam, awayTeam, startsAtDate.toISOString()]
+    `INSERT INTO sport_events (sport, home_team, away_team, starts_at, home_team_id, away_team_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, sport, home_team, away_team, starts_at, status, home_team_id, away_team_id`,
+    [sport, resolvedHomeTeam.trim(), resolvedAwayTeam.trim(), startsAtDate.toISOString(), homeTeamId || null, awayTeamId || null]
   );
   return result.rows[0];
 }
