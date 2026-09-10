@@ -30,17 +30,16 @@ export default function Login() {
       <div className="auth-card">
         <AuthHero />
         <div className="brand">Palco</div>
-        <p className="tagline">Apuestas deportivas y casino en un solo lugar.</p>
+        <p className="tagline">Apuestas deportivas y casino, en un solo lugar.</p>
 
         {error && <div className="error-banner">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label htmlFor="email">Correo electrónico</label>
+            <label htmlFor="email">Correo</label>
             <input
               id="email"
               type="email"
-              placeholder="tu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -51,19 +50,18 @@ export default function Login() {
             <input
               id="password"
               type="password"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
-          <button className="btn" type="submit" disabled={submitting} style={{ width: '100%', marginTop: 8 }}>
+          <button className="btn" type="submit" disabled={submitting} style={{ width: '100%' }}>
             {submitting ? 'Ingresando…' : 'Ingresar'}
           </button>
         </form>
 
-        <p className="text-sage" style={{ marginTop: 24, fontSize: 14, textAlign: 'center' }}>
-          ¿No tienes cuenta? <Link to="/register" className="text-gold">Regístrate gratis</Link>
+        <p className="text-sage" style={{ marginTop: 20, fontSize: 14 }}>
+          ¿No tienes cuenta? <Link to="/register" className="text-gold">Regístrate</Link>
         </p>
       </div>
     </div>

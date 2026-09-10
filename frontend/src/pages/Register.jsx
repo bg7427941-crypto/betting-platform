@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { AuthHero } from '../components/AuthHero';
 
 export default function Register() {
   const { register } = useAuth();
@@ -30,6 +31,7 @@ export default function Register() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
+        <AuthHero />
         <div className="brand">Palco</div>
         <p className="tagline">Crea tu cuenta. Debes ser mayor de 18 años.</p>
 

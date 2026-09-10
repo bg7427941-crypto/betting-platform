@@ -11,25 +11,44 @@ const RED_NUMBERS = new Set([
 ]);
 
 function pocketColor(n) {
-  if (n === 0) return 'var(--felt-3)'; // el 0 se distingue con el verde de fieltro, no negro/rojo
+  if (n === 0) return 'var(--felt-3)';
   return RED_NUMBERS.has(n) ? 'var(--brick)' : '#141414';
+}
+
+// color para el texto del número grande de resultado (legible sobre fondo de fieltro)
+function resultTextColor(n) {
+  if (n === 0) return 'var(--gold)';
+  return RED_NUMBERS.has(n) ? 'var(--brick)' : 'var(--parchment)';
+}
+
+function resultLabel(n) {
+  if (n === 0) return 'Verde';
+  return RED_NUMBERS.has(n) ? 'Rojo' : 'Negro';
 }
 
 const SLICE_ANGLE = 360 / WHEEL_ORDER.length;
 const SIZE = 300;
 const CENTER = SIZE / 2;
-const OUTER_R = 142;
-const INNER_R = 96;
-const NUMBER_R = (OUTER_R + INNER_R) / 2; // radio donde van los números, mitad de cada casilla
 
-const BALL_OUTER_R = OUTER_R - 6; // radio de la bolita mientras gira, cerca del borde
-const BALL_LANDED_R = NUMBER_R; // radio al que "cae" la bolita, sobre el mismo anillo que los números
+// wedges numerados (la parte que gira)
+const WEDGE_OUTER_R = 124;
+const WEDGE_INNER_R = 88;
+const NUMBER_R = (WEDGE_OUTER_R + WEDGE_INNER_R) / 2;
 
-// tiempo mínimo que la rueda gira "a ciegas" antes de poder empezar a frenar,
-// para que el giro se vea aunque el servidor responda casi al instante (localhost)
+// pista de la bolita: un carril FIJO, separado de los wedges — la bolita gira ahí
+// de forma independiente, como en una ruleta real, y recién al final "cae" hacia
+// el anillo de los números.
+const TRACK_MID_R = 138;
+const TRACK_WIDTH = 16;
+const RIM_R = 150;
+const BALL_TRACK_RADIUS = 137;
+const BALL_LANDED_RADIUS = NUMBER_R;
+
 const MIN_SPIN_MS = 900;
-const SETTLE_MS = 2400;
+const SETTLE_MS = 2600;
 const SETTLE_SECONDS = SETTLE_MS / 1000;
+const RADIUS_DROP_SHARE = 0.55; // fracción del frenado en la que empieza a "caer"
+const RADIUS_DROP_SECONDS = (SETTLE_MS * (1 - RADIUS_DROP_SHARE)) / 1000;
 
 function polarToXY(angleDeg, radius) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -39,11 +58,11 @@ function polarToXY(angleDeg, radius) {
 function slicePath(index) {
   const start = index * SLICE_ANGLE;
   const end = start + SLICE_ANGLE;
-  const [x1, y1] = polarToXY(start, OUTER_R);
-  const [x2, y2] = polarToXY(end, OUTER_R);
-  const [x3, y3] = polarToXY(end, INNER_R);
-  const [x4, y4] = polarToXY(start, INNER_R);
-  return `M ${x1} ${y1} A ${OUTER_R} ${OUTER_R} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${INNER_R} ${INNER_R} 0 0 0 ${x4} ${y4} Z`;
+  const [x1, y1] = polarToXY(start, WEDGE_OUTER_R);
+  const [x2, y2] = polarToXY(end, WEDGE_OUTER_R);
+  const [x3, y3] = polarToXY(end, WEDGE_INNER_R);
+  const [x4, y4] = polarToXY(start, WEDGE_INNER_R);
+  return `M ${x1} ${y1} A ${WEDGE_OUTER_R} ${WEDGE_OUTER_R} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${WEDGE_INNER_R} ${WEDGE_INNER_R} 0 0 0 ${x4} ${y4} Z`;
 }
 
 /**
@@ -54,33 +73,38 @@ function slicePath(index) {
 export function RouletteWheel({ spinning, winningNumber, onSettled }) {
   const [rotation, setRotation] = useState(0);
   const [ballRotation, setBallRotation] = useState(0);
-  const [ballRadius, setBallRadius] = useState(BALL_OUTER_R);
+  const [ballRadius, setBallRadius] = useState(BALL_TRACK_RADIUS);
+  const [radiusTransitionSeconds, setRadiusTransitionSeconds] = useState(0);
   const [transitionOn, setTransitionOn] = useState(false);
   const [landed, setLanded] = useState(false);
+  const [bouncing, setBouncing] = useState(false);
   const spinStartedAt = useRef(null);
-  const settleTimers = useRef([]);
+  const timers = useRef([]);
 
   function clearTimers() {
-    settleTimers.current.forEach(clearTimeout);
-    settleTimers.current = [];
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
   }
 
-  // Giro indefinido mientras se espera el resultado (rueda y bola en direcciones opuestas)
+  // Giro indefinido mientras se espera el resultado: rueda y bola en direcciones
+  // opuestas, la bola se mantiene en su propia pista (no toca los wedges todavía)
   useEffect(() => {
     if (spinning) {
       clearTimers();
       spinStartedAt.current = Date.now();
       setTransitionOn(false);
       setLanded(false);
-      setBallRadius(BALL_OUTER_R);
+      setBouncing(false);
+      setRadiusTransitionSeconds(0);
+      setBallRadius(BALL_TRACK_RADIUS);
       setRotation((r) => r + 360 * 20);
       setBallRotation((r) => r - 360 * 26);
     }
   }, [spinning]);
 
-  // Frenado hacia el número ganador, respetando un tiempo mínimo de giro visible.
-  // La bolita gira Y cae hacia adentro (menor radio) al mismo tiempo que la rueda frena,
-  // aterrizando exactamente sobre la casilla ganadora.
+  // Frenado: primero la bola sigue perdiendo velocidad EN SU PISTA (como pasaría
+  // realmente, rozando el borde), y solo en el último tramo cae hacia el anillo
+  // de números — con un pequeño rebote al asentarse.
   useEffect(() => {
     if (winningNumber === null || winningNumber === undefined) return;
 
@@ -88,27 +112,34 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     const waitBeforeSettling = Math.max(0, MIN_SPIN_MS - elapsed);
 
     const settleTimer = setTimeout(() => {
-      setRotation((currentRotation) => {
+      setRotation((current) => {
         const pocketIndex = WHEEL_ORDER.indexOf(winningNumber);
         const pocketAngle = pocketIndex * SLICE_ANGLE;
-        const currentMod = ((currentRotation % 360) + 360) % 360;
-        const target = currentRotation - currentMod + 360 * 4 + (360 - pocketAngle);
-        return target;
+        const currentMod = ((current % 360) + 360) % 360;
+        return current - currentMod + 360 * 4 + (360 - pocketAngle);
       });
-      setBallRotation((currentBallRotation) => {
-        const ballCurrentMod = ((currentBallRotation % 360) + 360) % 360;
-        return currentBallRotation - ballCurrentMod - 360 * 3;
+      setBallRotation((current) => {
+        const currentMod = ((current % 360) + 360) % 360;
+        return current - currentMod - 360 * 3;
       });
-      setBallRadius(BALL_LANDED_R);
+      setRadiusTransitionSeconds(0); // todavía no cae, solo frena en su pista
       setTransitionOn(true);
     }, waitBeforeSettling);
 
+    const dropTimer = setTimeout(() => {
+      setRadiusTransitionSeconds(RADIUS_DROP_SECONDS);
+      setBallRadius(BALL_LANDED_RADIUS);
+    }, waitBeforeSettling + SETTLE_MS * RADIUS_DROP_SHARE);
+
     const doneTimer = setTimeout(() => {
       setLanded(true);
+      setBouncing(true);
       onSettled && onSettled();
+      const bounceTimer = setTimeout(() => setBouncing(false), 420);
+      timers.current.push(bounceTimer);
     }, waitBeforeSettling + SETTLE_MS);
 
-    settleTimers.current.push(settleTimer, doneTimer);
+    timers.current.push(settleTimer, dropTimer, doneTimer);
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winningNumber]);
@@ -132,17 +163,34 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           zIndex: 2,
         }}
       />
+
+      {/* capa ESTÁTICA: el aro y la pista de la bola no giran, solo la rueda numerada gira debajo */}
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ position: 'absolute', inset: 0 }}>
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={TRACK_MID_R}
+          fill="none"
+          stroke="var(--line)"
+          strokeWidth={TRACK_WIDTH}
+        />
+        <circle cx={CENTER} cy={CENTER} r={RIM_R} fill="none" stroke="var(--gold)" strokeWidth="2" />
+        <circle cx={CENTER} cy={CENTER} r={TRACK_MID_R - TRACK_WIDTH / 2} fill="none" stroke="var(--gold)" strokeWidth="1" opacity="0.4" />
+      </svg>
+
+      {/* rueda numerada: gira de forma independiente de la pista/bola */}
       <svg
         width={SIZE}
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className={spinning && !transitionOn ? 'wheel-spinning' : ''}
         style={{
+          position: 'absolute',
+          inset: 0,
           transform: `rotate(${rotation}deg)`,
           transition: transitionOn ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.15, 0.85, 0.25, 1)` : 'none',
         }}
+        className={spinning && !transitionOn ? 'wheel-spinning' : ''}
       >
-        <circle cx={CENTER} cy={CENTER} r={OUTER_R + 8} fill="none" stroke="var(--gold)" strokeWidth="2" />
         {WHEEL_ORDER.map((n, i) => {
           const isWinner = landed && n === winningNumber;
           const midAngle = i * SLICE_ANGLE + SLICE_ANGLE / 2;
@@ -174,10 +222,10 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
             </g>
           );
         })}
-        <circle cx={CENTER} cy={CENTER} r={INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
+        <circle cx={CENTER} cy={CENTER} r={WEDGE_INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
       </svg>
 
-      {/* bolita: orbita en dirección contraria a la rueda y cae de radio al aterrizar */}
+      {/* bolita: gira independiente en su pista y cae hacia el anillo de números */}
       <svg
         width={SIZE}
         height={SIZE}
@@ -186,25 +234,31 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           position: 'absolute',
           inset: 0,
           transform: `rotate(${ballRotation}deg)`,
-          transition: transitionOn ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.25, 0.8, 0.3, 1)` : 'none',
+          transition: transitionOn ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.22, 0.7, 0.3, 1)` : 'none',
           animation: spinning && !transitionOn ? 'ball-spin-fast 0.4s linear infinite' : 'none',
         }}
       >
-        <circle
-          cx={CENTER}
-          cy={CENTER - ballRadius}
-          r="5.5"
-          fill="var(--parchment)"
-          style={{ transition: transitionOn ? `cy ${SETTLE_SECONDS}s cubic-bezier(0.3, 0.7, 0.4, 1)` : 'none' }}
-        />
+        <g className={bouncing ? 'ball-bounce' : ''}>
+          <circle
+            cx={CENTER}
+            cy={CENTER - ballRadius}
+            r="5.5"
+            fill="var(--parchment)"
+            style={{
+              transition: radiusTransitionSeconds
+                ? `cy ${radiusTransitionSeconds}s cubic-bezier(0.4, 0, 0.6, 1)`
+                : 'none',
+            }}
+          />
+        </g>
       </svg>
 
       {landed && winningNumber !== null && winningNumber !== undefined && (
-        <div
-          className="wheel-result-badge"
-          style={{ background: pocketColor(winningNumber), transform: 'translate(-50%, -50%)' }}
-        >
-          <span className="mono">{winningNumber}</span>
+        <div className="wheel-result-badge">
+          <span className="mono wheel-result-number" style={{ color: resultTextColor(winningNumber) }}>
+            {winningNumber}
+          </span>
+          <span className="text-sage wheel-result-label">{resultLabel(winningNumber)}</span>
         </div>
       )}
     </div>

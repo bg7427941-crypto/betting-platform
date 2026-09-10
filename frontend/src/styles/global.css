@@ -418,6 +418,81 @@ button {
   }
 }
 
+.pocket-winner {
+  animation: pocket-glow-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes pocket-glow-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px var(--gold));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px var(--gold));
+  }
+}
+
+@keyframes ball-bounce {
+  0% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-5px);
+  }
+  65% {
+    transform: translateY(1.5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.ball-bounce {
+  animation: ball-bounce 0.42s ease-out;
+}
+
+.wheel-result-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--felt-2);
+  border: 2px solid var(--gold);
+  z-index: 3;
+  animation: result-badge-fade 0.35s ease-out;
+}
+
+.wheel-result-number {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.wheel-result-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@keyframes result-badge-fade {
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
 .reel-window {
   display: flex;
   gap: 12px;
