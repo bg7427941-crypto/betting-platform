@@ -50,6 +50,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
   const [rotation, setRotation] = useState(0);
   const [ballRotation, setBallRotation] = useState(0);
   const [transitionOn, setTransitionOn] = useState(false);
+  const [landed, setLanded] = useState(false);
   const spinStartedAt = useRef(null);
   const settleTimers = useRef([]);
 
@@ -64,6 +65,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       clearTimers();
       spinStartedAt.current = Date.now();
       setTransitionOn(false);
+      setLanded(false);
       setRotation((r) => r + 360 * 20);
       setBallRotation((r) => r - 360 * 26);
     }
@@ -92,6 +94,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     }, waitBeforeSettling);
 
     const doneTimer = setTimeout(() => {
+      setLanded(true);
       onSettled && onSettled();
     }, waitBeforeSettling + SETTLE_MS);
 
@@ -99,6 +102,8 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winningNumber]);
+
+  useEffect(() => clearTimers, []);
 
   useEffect(() => clearTimers, []);
 
@@ -130,9 +135,19 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
         }}
       >
         <circle cx={CENTER} cy={CENTER} r={OUTER_R + 6} fill="none" stroke="var(--gold)" strokeWidth="2" />
-        {WHEEL_ORDER.map((n, i) => (
-          <path key={n} d={slicePath(i)} fill={pocketColor(n)} stroke="var(--felt)" strokeWidth="0.5" />
-        ))}
+        {WHEEL_ORDER.map((n, i) => {
+          const isWinner = landed && n === winningNumber;
+          return (
+            <path
+              key={n}
+              d={slicePath(i)}
+              fill={pocketColor(n)}
+              stroke={isWinner ? 'var(--gold)' : 'var(--felt)'}
+              strokeWidth={isWinner ? 2.5 : 0.5}
+              className={isWinner ? 'pocket-winner' : ''}
+            />
+          );
+        })}
         <circle cx={CENTER} cy={CENTER} r={INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
       </svg>
 
@@ -151,6 +166,15 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       >
         <circle cx={CENTER} cy={CENTER - OUTER_R + 4} r="4.5" fill="var(--parchment)" />
       </svg>
+
+      {landed && winningNumber !== null && winningNumber !== undefined && (
+        <div
+          className="wheel-result-badge"
+          style={{ background: pocketColor(winningNumber), transform: 'translate(-50%, -50%)' }}
+        >
+          <span className="mono">{winningNumber}</span>
+        </div>
+      )}
     </div>
   );
 }
