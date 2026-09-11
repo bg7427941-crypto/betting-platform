@@ -29,10 +29,14 @@ const registerLimiter = rateLimit({
  * Límite para rondas de casino: evita spam de requests para "fuerza bruta"
  * de resultados o sobrecarga del servidor con giros automatizados.
  * Cuenta por IP (podría combinarse con userId si se quiere ser más fino).
+ *
+ * 100/min da margen para el modo turbo + autoplay del tragamonedas (un
+ * giro turbo completo dura ~1s, ~55-60/min en uso normal); sigue
+ * bloqueando scripts que disparen requests mucho más seguido que eso.
  */
 const casinoPlayLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  limit: 30,
+  limit: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Estás jugando demasiado rápido. Espera un momento e intenta de nuevo.' },
