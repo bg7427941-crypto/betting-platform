@@ -1,7 +1,24 @@
 const { query } = require('../../db');
 const teamsService = require('../teams/teams.service');
 
+/**
+ * Pasa a 'live' cualquier evento 'scheduled' cuyo starts_at ya llegó. Es
+ * una transición "perezosa" (se aplica de paso cada vez que se listan/leen
+ * eventos) en vez de un cron aparte — suficiente para que el badge de
+ * estado sea correcto sin depender de que un admin la dispare a mano.
+ * El corte real de apuestas nuevas NO depende de esto (ver bets.service.js,
+ * que chequea starts_at directamente) — esto es solo para que el status
+ * mostrado en pantalla quede al día.
+ */
+async function lockStartedEvents() {
+  await query(
+    `UPDATE sport_events SET status = 'live'
+     WHERE status = 'scheduled' AND starts_at <= now()`
+  );
+}
+
 async function listUpcomingEvents() {
+  await lockStartedEvents();
   const result = await query(
     `SELECT id, sport, home_team, away_team, starts_at, status
      FROM sport_events
@@ -18,6 +35,7 @@ async function listUpcomingEvents() {
  * qué evento cargar cuotas o finalizar.
  */
 async function listAllEventsAdmin() {
+  await lockStartedEvents();
   const result = await query(
     `SELECT
        e.id, e.sport, e.home_team, e.away_team, e.home_team_id, e.away_team_id,
@@ -38,6 +56,7 @@ async function listAllEventsAdmin() {
 }
 
 async function getEventWithOdds(eventId) {
+  await lockStartedEvents();
   const eventResult = await query(
     `SELECT id, sport, home_team, away_team, home_team_id, away_team_id, starts_at, status, result
      FROM sport_events WHERE id = $1`,

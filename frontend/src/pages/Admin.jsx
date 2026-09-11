@@ -478,7 +478,8 @@ function CreateEventForm({ teams, onCreated }) {
 
 function EventAdminRow({ event, onChanged }) {
   const [expanded, setExpanded] = useState(false);
-  const isOpenForBetting = event.status === 'scheduled' || event.status === 'live';
+  const canStillLoadOdds = event.status === 'scheduled'; // se cierra apenas arranca el partido
+  const canFinish = event.status === 'scheduled' || event.status === 'live';
   const hasLinkedTeams = Boolean(event.home_team_id && event.away_team_id);
 
   return (
@@ -513,7 +514,7 @@ function EventAdminRow({ event, onChanged }) {
               Resultado: <span className="text-gold">{RESULT_LABELS[event.result] || event.result}</span>
             </div>
           )}
-          {isOpenForBetting && (
+          {canStillLoadOdds && (
             <>
               {hasLinkedTeams ? (
                 <AutoOddsForm eventId={event.id} onCalculated={onChanged} />
@@ -526,9 +527,14 @@ function EventAdminRow({ event, onChanged }) {
               <hr className="divider" />
               <AddOddsForm eventId={event.id} onAdded={onChanged} />
               <hr className="divider" />
-              <FinishEventForm eventId={event.id} onFinished={onChanged} />
             </>
           )}
+          {event.status === 'live' && (
+            <div className="text-sage" style={{ fontSize: 13, marginBottom: 10 }}>
+              El partido ya empezó — las apuestas están cerradas. Solo queda finalizarlo.
+            </div>
+          )}
+          {canFinish && <FinishEventForm eventId={event.id} onFinished={onChanged} />}
         </>
       )}
     </div>

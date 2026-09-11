@@ -26,8 +26,11 @@ async function calculateAndSaveOdds(eventId, { marginRate } = {}) {
     if (!event) {
       throw Object.assign(new Error('Evento no encontrado'), { status: 404 });
     }
-    if (event.status === 'finished' || event.status === 'cancelled') {
-      throw Object.assign(new Error('No se pueden calcular cuotas para un evento ya cerrado'), { status: 409 });
+    if (event.status !== 'scheduled') {
+      throw Object.assign(
+        new Error('Solo se pueden calcular cuotas para un evento programado que todavía no empezó'),
+        { status: 409 }
+      );
     }
     if (!event.home_team_id || !event.away_team_id) {
       throw Object.assign(

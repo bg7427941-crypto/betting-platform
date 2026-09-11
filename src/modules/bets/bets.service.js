@@ -10,17 +10,24 @@ async function placeBet(userId, { eventId, oddsId, stakeCents }) {
   }
 
   return withTransaction(async (client) => {
-    // 1. Verificar que el evento siga abierto para apostar
+    // 1. Verificar que el evento siga abierto para apostar — el corte real
+    // es por tiempo (starts_at <= ahora ya no admite apuestas nuevas, sin
+    // depender de que alguien haya actualizado el status a mano).
     const eventResult = await client.query(
-      `SELECT id, status FROM sport_events WHERE id = $1 FOR UPDATE`,
+      `SELECT id, status, starts_at FROM sport_events WHERE id = $1 FOR UPDATE`,
       [eventId]
     );
     const event = eventResult.rows[0];
     if (!event) {
       throw Object.assign(new Error('Evento no encontrado'), { status: 404 });
     }
-    if (event.status !== 'scheduled' && event.status !== 'live') {
+    if (event.status !== 'scheduled') {
       throw Object.assign(new Error('Este evento ya no admite apuestas'), { status: 400 });
+    }
+    if (new Date(event.starts_at).getTime() <= Date.now()) {
+      throw Object.assign(new Error('Las apuestas para este evento ya cerraron (el partido ya empezó)'), {
+        status: 400,
+      });
     }
 
     // 2. Verificar que la cuota exista, esté activa y pertenezca al evento
