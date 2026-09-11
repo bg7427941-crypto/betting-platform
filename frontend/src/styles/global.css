@@ -529,6 +529,245 @@ button {
   }
 }
 
+/* ---------- tragamonedas: gabinete, grid 5x3, líneas y premio grande ---------- */
+
+.slot-cabinet {
+  background:
+    radial-gradient(ellipse 500px 200px at 50% -10%, rgba(201, 162, 39, 0.1), transparent 65%),
+    var(--felt);
+  border: 1px solid var(--gold-dim);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.15), 0 0 40px rgba(0, 0, 0, 0.35);
+  padding: 22px;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.slot-marquee {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.slot-marquee .slot-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.01em;
+}
+
+.slot-marquee .slot-subtitle {
+  font-size: 12px;
+  color: var(--sage);
+  margin-top: 2px;
+}
+
+.slot-grid-frame {
+  position: relative;
+  background: var(--felt-2);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.45);
+  padding: 12px;
+  margin: 0 auto 16px;
+  width: fit-content;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 64px);
+  grid-template-rows: repeat(3, 58px);
+  gap: 6px;
+}
+
+.slot-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  background: var(--felt-3);
+  border: 1px solid var(--line);
+  position: relative;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.slot-cell-hit {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold), 0 0 14px rgba(201, 162, 39, 0.55);
+  animation: slot-cell-pulse 0.9s ease-in-out infinite;
+}
+
+.slot-cell-scatter {
+  border-color: var(--brick);
+  box-shadow: inset 0 0 0 1px var(--brick), 0 0 14px rgba(168, 64, 47, 0.55);
+  animation: slot-cell-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes slot-cell-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.slot-lines-overlay {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  animation: slot-lines-in 0.3s ease-out;
+}
+
+@keyframes slot-lines-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.slot-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slot-bet-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+}
+
+.slot-bet-stepper button {
+  background: transparent;
+  border: none;
+  color: var(--parchment);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  width: 34px;
+  height: 38px;
+  cursor: pointer;
+}
+
+.slot-bet-stepper button:hover:not(:disabled) {
+  color: var(--gold);
+}
+
+.slot-bet-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.slot-bet-stepper .slot-bet-value {
+  font-family: var(--font-mono);
+  min-width: 64px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.slot-spin-btn {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.slot-readout-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--sage);
+}
+
+.slot-readout-row .slot-readout-value {
+  font-family: var(--font-mono);
+  color: var(--parchment);
+}
+
+.slot-paytable-toggle {
+  background: none;
+  border: none;
+  color: var(--sage);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.slot-paytable-toggle:hover {
+  color: var(--gold);
+}
+
+.slot-paytable {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.slot-paytable-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.slot-paytable-row .slot-paytable-symbol {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+}
+
+.slot-paytable-row .slot-paytable-values {
+  font-family: var(--font-mono);
+  color: var(--sage);
+}
+
+.slot-bigwin-overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 45, 34, 0.88);
+  animation: slot-bigwin-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slot-bigwin-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.slot-bigwin-label {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.slot-bigwin-amount {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  color: var(--parchment);
+  margin-top: 6px;
+}
+
+.slot-bigwin-dismiss {
+  margin-top: 16px;
+}
+
 @keyframes result-reveal {
   0% {
     opacity: 0;

@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 import { RouletteWheel } from '../components/RouletteWheel';
 import { BettingTable } from '../components/BettingTable';
+import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
 
 export default function Casino() {
   const [tab, setTab] = useState('roulette');
@@ -158,42 +159,29 @@ function Roulette() {
   );
 }
 
+const BET_STEP_CENTS = 100; // S/1
+const MIN_STAKE_CENTS = 100; // S/1
+const BIG_WIN_MULTIPLIER = 15; // a partir de acá se muestra el banner de premio grande
+
 function Slots() {
   const { refresh } = useWallet();
-  const [stake, setStake] = useState('5');
+  const [stakeCents, setStakeCents] = useState(500);
   const [spinning, setSpinning] = useState(false);
-  const [result, setResult] = useState(null);
+  const [pendingRound, setPendingRound] = useState(null);
+  const [round, setRound] = useState(null);
   const [error, setError] = useState('');
-  const [displayReels, setDisplayReels] = useState(['❔', '❔', '❔']);
+  const [showPaytable, setShowPaytable] = useState(false);
+  const [dismissedBigWin, setDismissedBigWin] = useState(false);
 
   async function play() {
     setSpinning(true);
     setError('');
-    setResult(null);
-
-    const stakeCents = Math.round(Number(stake) * 100);
-    const apiCall = api.playCasino({ game: 'slots', stake_cents: stakeCents });
-
-    // los tres rodillos frenan escalonados, para que se sienta el giro
-    const stopDelays = [1200, 1600, 2000];
-
+    setRound(null);
+    setPendingRound(null);
+    setDismissedBigWin(false);
     try {
-      const { round } = await apiCall;
-      stopDelays.forEach((delay, i) => {
-        setTimeout(() => {
-          setDisplayReels((prev) => {
-            const next = [...prev];
-            next[i] = round.outcome.reels[i];
-            return next;
-          });
-          if (i === stopDelays.length - 1) {
-            setTimeout(() => {
-              setResult(round);
-              setSpinning(false);
-            }, 200);
-          }
-        }, delay);
-      });
+      const { round: newRound } = await api.playCasino({ game: 'slots', stake_cents: stakeCents });
+      setPendingRound(newRound);
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -201,41 +189,94 @@ function Slots() {
     }
   }
 
+  function handleSettled() {
+    setSpinning(false);
+    setRound(pendingRound);
+  }
+
+  const multiplier = round?.outcome.multiplier || 0;
+  const isBigWin = round && multiplier >= BIG_WIN_MULTIPLIER && !dismissedBigWin;
+
   return (
-    <div className="panel" style={{ maxWidth: 420 }}>
+    <div className="slot-cabinet">
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="reel-window">
-        {displayReels.map((s, i) => (
-          <div key={i} className="reel-slot">
-            <span className={spinning ? 'reel-spinning' : 'reel-symbol'}>{s}</span>
+      <div className="slot-marquee">
+        <div className="slot-title">Corona Real</div>
+        <div className="slot-subtitle">5 carriles · 10 líneas · comodín y scatter</div>
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <SlotMachine spinning={spinning} result={pendingRound?.outcome} onSettled={handleSettled} />
+
+        {isBigWin && (
+          <div className="slot-bigwin-overlay">
+            <div className="slot-bigwin-label">
+              {multiplier >= 80 ? '¡Premio mayor!' : '¡Gran premio!'}
+            </div>
+            <div className="slot-bigwin-amount">{formatCents(round.payout_cents)}</div>
+            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>
+              Continuar
+            </button>
           </div>
-        ))}
+        )}
       </div>
 
-      <div className="field" style={{ maxWidth: 160 }}>
-        <label htmlFor="sstake">Monto (PEN)</label>
-        <input
-          id="sstake"
-          type="number"
-          min="1"
-          value={stake}
-          onChange={(e) => setStake(e.target.value)}
-          disabled={spinning}
-        />
+      <div className="slot-controls">
+        <div className="slot-bet-stepper">
+          <button
+            type="button"
+            onClick={() => setStakeCents((c) => Math.max(MIN_STAKE_CENTS, c - BET_STEP_CENTS))}
+            disabled={spinning || stakeCents <= MIN_STAKE_CENTS}
+          >
+            −
+          </button>
+          <span className="slot-bet-value mono">{formatCents(stakeCents)}</span>
+          <button
+            type="button"
+            onClick={() => setStakeCents((c) => c + BET_STEP_CENTS)}
+            disabled={spinning}
+          >
+            +
+          </button>
+        </div>
+        <button className="btn slot-spin-btn" onClick={play} disabled={spinning}>
+          {spinning ? 'Girando…' : 'Girar'}
+        </button>
       </div>
 
-      <button className="btn" onClick={play} disabled={spinning}>
-        {spinning ? 'Girando…' : 'Girar rodillos'}
-      </button>
-
-      {result && (
-        <div style={{ marginTop: 14 }} className="result-reveal">
-          {result.outcome.won ? (
-            <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
+      {round && !isBigWin && (
+        <div className="result-reveal" style={{ marginTop: 12 }}>
+          {round.outcome.won ? (
+            <span className="text-gold">Ganaste {formatCents(round.payout_cents)}</span>
           ) : (
             <span className="text-sage">Sin suerte esta vez</span>
           )}
+          {round.outcome.scatterCount >= 2 && round.outcome.scatterCount < 3 && (
+            <span className="text-sage" style={{ marginLeft: 8, fontSize: 12 }}>
+              (2 símbolos de scatter — a un paso del premio)
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="slot-readout-row">
+        <span>Apostado por línea</span>
+        <span className="slot-readout-value">{formatCents(Math.round(stakeCents / 10))} × 10</span>
+      </div>
+
+      <button className="slot-paytable-toggle" onClick={() => setShowPaytable((v) => !v)}>
+        {showPaytable ? 'Ocultar tabla de pagos' : 'Ver tabla de pagos'}
+      </button>
+
+      {showPaytable && (
+        <div className="slot-paytable">
+          {SLOT_PAYTABLE.map((row) => (
+            <div className="slot-paytable-row" key={row.symbol}>
+              <span className="slot-paytable-symbol">{row.symbol}</span>
+              <span className="slot-paytable-values">{row.values}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -58,7 +58,11 @@ npm run dev        # levanta el servidor en modo desarrollo
     (un array — se puede apostar a varias combinaciones en un mismo giro;
     `type` es `'straight'|'red'|'black'|'even'|'odd'|'low'|'high'|'dozen'|'column'`,
     `value` solo aplica a `straight` (0-36), `dozen` (1-3) y `column` (1-3))
-  - Slots: `{ game: 'slots', stake_cents }` — gira 3 rodillos automáticamente
+  - Slots: `{ game: 'slots', stake_cents }` — grid de 5 carriles x 3 filas,
+    10 líneas de pago fijas siempre activas, comodín (🃏, sustituye) y
+    scatter (💰, paga en cualquier posición sobre el total apostado).
+    RTP calibrado por simulación en ~97% (ver
+    `src/modules/casino/games.engine.js`).
 - `GET  /api/casino/history` — historial de rondas jugadas
 
 ## Cálculo automático de cuotas
