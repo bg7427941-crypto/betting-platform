@@ -135,6 +135,7 @@ export function SlotMachine({ spinning, result, onSettled }) {
                 className={`slot-cell ${isHit ? 'slot-cell-hit' : ''} ${
                   isScatterCell ? 'slot-cell-scatter' : ''
                 }`}
+                style={{ gridColumn: reel + 1, gridRow: row + 1 }}
               >
                 <span className={isSpinningCell ? 'reel-spinning' : 'reel-symbol'}>{symbol}</span>
               </div>
