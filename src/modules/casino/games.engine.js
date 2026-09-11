@@ -119,31 +119,59 @@ const SLOT_SYMBOLS = [
 
 const SYMBOL_PAYOUTS = Object.fromEntries(SLOT_SYMBOLS.map((s) => [s.symbol, s.payout]));
 const SCATTER_PAYOUTS = { 3: 25, 4: 120, 5: 600 };
-// RTP medido por simulación (5M giros): ~97.2%, tasa de victoria ~24.6%,
-// scatter (3+) ~1 de cada 160 giros — en línea con el rango típico de la
-// industria (92-97%). Si tocas los pesos o el paytable, re-simula antes
-// de asumir que sigue ahí.
+// RTP medido por simulación (5M giros) en modo normal: ~97.2%, tasa de
+// victoria ~24.6%, scatter (3+) ~1 de cada 160 giros. El modo "ante"
+// (más probabilidad de scatter) y "comprar bono" (scatter garantizado)
+// bajan el RTP a propósito a cambio de esa probabilidad — así funcionan
+// en los juegos reales de este estilo; no son apuestas "gratis".
 
-const TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
+const BASE_TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
 
-function spinSymbol() {
-  let roll = crypto.randomInt(0, TOTAL_SLOT_WEIGHT);
-  for (const s of SLOT_SYMBOLS) {
+/** Devuelve la tabla de pesos con el peso del scatter multiplicado por `scatterBoost`. */
+function weightedSymbols(scatterBoost) {
+  if (scatterBoost === 1) return { symbols: SLOT_SYMBOLS, totalWeight: BASE_TOTAL_SLOT_WEIGHT };
+  const symbols = SLOT_SYMBOLS.map((s) => (s.symbol === SCATTER ? { ...s, weight: s.weight * scatterBoost } : s));
+  const totalWeight = symbols.reduce((sum, s) => sum + s.weight, 0);
+  return { symbols, totalWeight };
+}
+
+function spinSymbolFrom(symbols, totalWeight) {
+  let roll = crypto.randomInt(0, totalWeight);
+  for (const s of symbols) {
     if (roll < s.weight) return s.symbol;
     roll -= s.weight;
   }
-  return SLOT_SYMBOLS[0].symbol; // fallback, no debería alcanzarse
+  return symbols[0].symbol; // fallback, no debería alcanzarse
 }
 
 /** Grid de 5 carriles x 3 filas: grid[carril][fila]. */
-function spinSlotGrid() {
+function spinSlotGrid(scatterBoost = 1) {
+  const { symbols, totalWeight } = weightedSymbols(scatterBoost);
   const grid = [];
   for (let reel = 0; reel < REELS; reel += 1) {
     const column = [];
-    for (let row = 0; row < ROWS; row += 1) column.push(spinSymbol());
+    for (let row = 0; row < ROWS; row += 1) column.push(spinSymbolFrom(symbols, totalWeight));
     grid.push(column);
   }
   return grid;
+}
+
+/** Último recurso si el RNG no convergió en MAX_ATTEMPTS (astronómicamente
+ * improbable): coloca scatters a la fuerza en carriles al azar hasta llegar
+ * al mínimo garantizado. Nunca debería ejecutarse en la práctica. */
+function forcePlaceScatters(grid, minCount) {
+  const next = grid.map((col) => [...col]);
+  const reelOrder = [...Array(REELS).keys()].sort(() => crypto.randomInt(0, 2) - 0.5);
+  let placed = countScatters(next);
+  for (const reel of reelOrder) {
+    if (placed >= minCount) break;
+    const row = crypto.randomInt(0, ROWS);
+    if (next[reel][row] !== SCATTER) {
+      next[reel][row] = SCATTER;
+      placed += 1;
+    }
+  }
+  return next;
 }
 
 // 10 líneas de pago clásicas, como fila por carril (0 = arriba, 2 = abajo).
@@ -192,12 +220,32 @@ function countScatters(grid) {
 /**
  * Gira el grid y resuelve las 10 líneas + el scatter. El "multiplier"
  * devuelto ya combina ambos en un solo número por el que el caller
- * multiplica el monto apostado (mismo contrato que resolveRouletteBet):
- * las líneas reparten el apostado entre las 10 líneas activas
- * (apostado/10 por línea), el scatter multiplica el apostado completo.
+ * multiplica el monto apostado BASE (no el costo real cobrado si hay
+ * ante o compra de bono — ver casino.service.js).
+ *
+ * options.scatterBoost: multiplica el peso del scatter (apuesta "ante").
+ * options.guaranteeBonus: fuerza que el giro caiga con 3+ scatters
+ * (comprar el bono directamente) — se logra re-girando el grid completo
+ * con un boost fuerte hasta que ocurra naturalmente, nunca "pintando"
+ * el resultado a mano salvo como último recurso extremo.
  */
-function playSlots() {
-  const grid = spinSlotGrid();
+function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
+  let grid;
+
+  if (guaranteeBonus) {
+    const CONVERGENCE_BOOST = 8; // boost fuerte para que converja rápido
+    const MAX_ATTEMPTS = 3000;
+    let attempts = 0;
+    do {
+      grid = spinSlotGrid(CONVERGENCE_BOOST);
+      attempts += 1;
+    } while (countScatters(grid) < 3 && attempts < MAX_ATTEMPTS);
+    if (countScatters(grid) < 3) {
+      grid = forcePlaceScatters(grid, 3);
+    }
+  } else {
+    grid = spinSlotGrid(scatterBoost);
+  }
 
   let lineMultiplierSum = 0;
   const winningLines = [];

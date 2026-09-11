@@ -40,6 +40,7 @@ export const api = {
   placeBet: (payload) => request('/api/sports/bets', { method: 'POST', body: payload }),
 
   playCasino: (payload) => request('/api/casino/play', { method: 'POST', body: payload }),
+  getSlotsConfig: () => request('/api/casino/slots/config'),
   casinoHistory: () => request('/api/casino/history'),
 
   adminSummary: () => request('/api/admin/summary'),

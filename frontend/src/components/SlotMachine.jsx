@@ -31,10 +31,12 @@ function cellCenter(reel, row) {
 const PLACEHOLDER_GRID = Array.from({ length: REELS }, () => Array(ROWS).fill('❔'));
 
 // Cascada de frenado izquierda-a-derecha, un carril a la vez — se dispara
-// quede cuando llegue el resultado, no desde que arrancó a girar (así no
-// importa cuánto tarde la red).
+// cuando llega el resultado, no desde que arrancó a girar (así no importa
+// cuánto tarde la red). En modo turbo se comprime a una fracción.
 const STOP_DELAYS = [350, 650, 950, 1250, 1550];
+const STOP_DELAYS_TURBO = STOP_DELAYS.map((d) => Math.round(d * 0.28));
 const SETTLE_GRACE_MS = 250;
+const SETTLE_GRACE_MS_TURBO = 90;
 
 export const SLOT_PAYTABLE = [
   { symbol: '7️⃣', values: '23.5 · 70 · 235 ×' },
@@ -55,7 +57,7 @@ export const SLOT_PAYTABLE = [
  * llegar dispara la cascada de frenado carril por carril. onSettled: se
  * llama cuando termina esa cascada (recién ahí el padre revela el payout).
  */
-export function SlotMachine({ spinning, result, onSettled }) {
+export function SlotMachine({ spinning, result, turbo, onSettled }) {
   const [displayGrid, setDisplayGrid] = useState(PLACEHOLDER_GRID);
   const [stoppedReels, setStoppedReels] = useState(0);
   const [showLines, setShowLines] = useState(false);
@@ -81,7 +83,10 @@ export function SlotMachine({ spinning, result, onSettled }) {
     if (!result) return;
     clearTimers();
 
-    STOP_DELAYS.forEach((delay, reelIndex) => {
+    const stopDelays = turbo ? STOP_DELAYS_TURBO : STOP_DELAYS;
+    const settleGrace = turbo ? SETTLE_GRACE_MS_TURBO : SETTLE_GRACE_MS;
+
+    stopDelays.forEach((delay, reelIndex) => {
       const t = setTimeout(() => {
         setDisplayGrid((prev) => {
           const next = prev.map((col) => [...col]);
@@ -89,11 +94,11 @@ export function SlotMachine({ spinning, result, onSettled }) {
           return next;
         });
         setStoppedReels(reelIndex + 1);
-        if (reelIndex === STOP_DELAYS.length - 1) {
+        if (reelIndex === stopDelays.length - 1) {
           const settleTimer = setTimeout(() => {
             setShowLines(true);
             onSettled && onSettled();
-          }, SETTLE_GRACE_MS);
+          }, settleGrace);
           timers.current.push(settleTimer);
         }
       }, delay);
@@ -102,7 +107,7 @@ export function SlotMachine({ spinning, result, onSettled }) {
 
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result]);
+  }, [result, turbo]);
 
   useEffect(() => clearTimers, []);
 
