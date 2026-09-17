@@ -994,6 +994,123 @@ button {
   z-index: 2;
 }
 
+/* Apertura del bono: se anuncia antes de tirar el primer carrete, en vez
+   de arrancar los giros directo — le da un momento de "esto es un evento",
+   no solo el próximo resultado de la ruleta de símbolos. */
+.slot-bonus-intro-overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: radial-gradient(circle at 50% 40%, rgba(201, 162, 39, 0.16), rgba(15, 45, 34, 0.94) 70%);
+  overflow: hidden;
+  animation: slot-bigwin-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+
+.slot-bonus-intro-ring {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border: 2px solid var(--gold-dim);
+  border-radius: 50%;
+  animation: slot-bonus-ring-spin 5s linear infinite, slot-bonus-ring-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes slot-bonus-ring-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slot-bonus-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.slot-bonus-intro-kicker {
+  position: relative;
+  z-index: 2;
+  color: var(--sage);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+
+.slot-bonus-intro-title {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  margin: 4px 0;
+  animation: slot-bonus-title-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+@keyframes slot-bonus-title-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.slot-bonus-intro-detail {
+  position: relative;
+  z-index: 2;
+  color: var(--parchment);
+  font-size: 14px;
+}
+
+.slot-bonus-intro-start {
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
+}
+
+/* Cierre del bono: el total se cuenta hacia arriba en vez de aparecer ya
+   calculado, para que el remate se sienta como un resultado propio y no
+   como que el bono "ya terminó" sin más. */
+.slot-bonus-outro-overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(15, 45, 34, 0.92);
+  animation: slot-bigwin-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+
+.slot-bonus-outro-kicker {
+  color: var(--sage);
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+.slot-bonus-outro-amount {
+  font-size: 38px;
+  color: var(--gold);
+}
+
+.slot-bonus-outro-continue {
+  margin-top: 14px;
+}
+
 @keyframes result-reveal {
   0% {
     opacity: 0;
