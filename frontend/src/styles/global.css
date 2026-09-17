@@ -549,6 +549,42 @@ button {
   padding-top: 10px;
 }
 
+.slot-bonus-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(201, 162, 39, 0.14), rgba(201, 162, 39, 0.05));
+  border: 1px solid var(--gold-dim);
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.slot-retrigger-flash {
+  text-align: center;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 15px;
+  padding: 6px 0;
+  margin-bottom: 8px;
+  animation: slot-retrigger-pop 0.35s ease-out;
+}
+
+@keyframes slot-retrigger-pop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .slot-marquee-bulbs {
   position: absolute;
   top: -14px;

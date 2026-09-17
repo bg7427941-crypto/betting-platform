@@ -192,9 +192,23 @@ function Slots() {
   const [autoplayRemaining, setAutoplayRemaining] = useState(0);
   const autoplayRef = useRef(false);
 
+  // --- reproducción del bono de giros gratis (backend ya jugó toda la
+  // ronda de una vez; acá solo la vamos revelando giro por giro) ---
+  const [bonusActive, setBonusActive] = useState(false);
+  const [bonusSpins, setBonusSpins] = useState([]);
+  const [bonusIndex, setBonusIndex] = useState(0);
+  const [bonusInfo, setBonusInfo] = useState(null); // { bonusMultiplier, triggerScatterCount }
+  const [bonusRunningCents, setBonusRunningCents] = useState(0);
+  const [bonusSpinning, setBonusSpinning] = useState(false);
+  const [bonusRetriggerFlash, setBonusRetriggerFlash] = useState(false);
+  const stakeAtBonusStart = useRef(0);
+  const bonusTimers = useRef([]);
+
   useEffect(() => {
     api.getSlotsConfig().then(setSlotsConfig).catch(() => {});
   }, []);
+
+  useEffect(() => () => bonusTimers.current.forEach(clearTimeout), []);
 
   const anteTiers = slotsConfig?.anteTiers || DEFAULT_ANTE_TIERS;
   const buyBonusMultiplier = slotsConfig?.buyBonusCostMultiplier ?? DEFAULT_BUY_BONUS_MULTIPLIER;
@@ -237,24 +251,78 @@ function Slots() {
     setAutoplayRemaining(0);
   }
 
+  // continúa el autoplay (si corresponde) después de que un resultado ya
+  // quedó totalmente revelado — se llama tanto tras un giro normal como
+  // tras terminar de reproducir un bono.
+  function continueAutoplayIfNeeded() {
+    if (!autoplayRef.current) return;
+    setAutoplayRemaining((prev) => {
+      const next = prev - 1;
+      const canContinue = next > 0 && balanceCents >= normalCostCents;
+      if (canContinue) {
+        const t = setTimeout(() => {
+          if (autoplayRef.current) spin();
+        }, AUTOPLAY_GAP_MS);
+        bonusTimers.current.push(t);
+      } else {
+        autoplayRef.current = false;
+        setAutoplayTotal(null);
+      }
+      return Math.max(next, 0);
+    });
+  }
+
   function handleSettled() {
+    if (pendingRound?.outcome.bonus) {
+      // No revelamos `round` todavía — así el overlay de premio grande no
+      // tapa la reproducción del bono. Arrancamos la secuencia de giros.
+      stakeAtBonusStart.current = stakeCents;
+      setBonusInfo({
+        bonusMultiplier: pendingRound.outcome.bonus.bonusMultiplier,
+        triggerScatterCount: pendingRound.outcome.bonus.triggerScatterCount,
+      });
+      setBonusSpins(pendingRound.outcome.bonus.spins);
+      setBonusIndex(0);
+      setBonusRunningCents(0);
+      setBonusActive(true);
+      setBonusSpinning(true);
+      return;
+    }
+
     setSpinning(false);
     setRound(pendingRound);
+    continueAutoplayIfNeeded();
+  }
 
-    if (autoplayRef.current) {
-      setAutoplayRemaining((prev) => {
-        const next = prev - 1;
-        const canContinue = next > 0 && balanceCents >= normalCostCents;
-        if (canContinue) {
-          setTimeout(() => {
-            if (autoplayRef.current) spin();
-          }, AUTOPLAY_GAP_MS);
-        } else {
-          autoplayRef.current = false;
-          setAutoplayTotal(null);
-        }
-        return Math.max(next, 0);
-      });
+  function handleBonusSpinSettled() {
+    const currentSpin = bonusSpins[bonusIndex];
+    const spinPayoutCents = Math.round(currentSpin.payoutMultiplier * stakeAtBonusStart.current);
+    setBonusRunningCents((prev) => prev + spinPayoutCents);
+
+    if (currentSpin.retriggerAmount > 0) {
+      setBonusRetriggerFlash(true);
+      const flashTimer = setTimeout(() => setBonusRetriggerFlash(false), 1400);
+      bonusTimers.current.push(flashTimer);
+    }
+
+    const nextIndex = bonusIndex + 1;
+    const pauseMs = turbo ? 260 : 550;
+
+    if (nextIndex < bonusSpins.length) {
+      const t = setTimeout(() => {
+        setBonusIndex(nextIndex);
+        setBonusSpinning(true);
+      }, pauseMs);
+      bonusTimers.current.push(t);
+    } else {
+      const t = setTimeout(() => {
+        setBonusActive(false);
+        setBonusSpinning(false);
+        setSpinning(false);
+        setRound(pendingRound); // ahora sí, con el pago total ya calculado por el backend
+        continueAutoplayIfNeeded();
+      }, pauseMs);
+      bonusTimers.current.push(t);
     }
   }
 
@@ -263,6 +331,10 @@ function Slots() {
   const isAutoplaying = autoplayTotal !== null;
   const canAffordNormal = balanceCents >= normalCostCents;
   const canAffordBonus = balanceCents >= buyBonusCostCents;
+
+  const displayResult = bonusActive ? bonusSpins[bonusIndex] : pendingRound?.outcome;
+  const displaySpinning = bonusActive ? bonusSpinning : spinning;
+  const displayOnSettled = bonusActive ? handleBonusSpinSettled : handleSettled;
 
   return (
     <div className="slot-cabinet">
@@ -278,8 +350,30 @@ function Slots() {
         <div className="slot-subtitle">5 carriles · 10 líneas · comodín y scatter</div>
       </div>
 
+      {bonusActive && bonusInfo && (
+        <div className="slot-bonus-bar">
+          <div>
+            <span className="text-gold">🎁 Bono de giros gratis</span>
+            <span className="text-sage" style={{ marginLeft: 8 }}>
+              multiplicador ×{bonusInfo.bonusMultiplier}
+            </span>
+          </div>
+          <div className="mono">
+            Giro {bonusIndex + 1}/{bonusSpins.length} · Acumulado{' '}
+            <span className="text-gold">{formatCents(bonusRunningCents)}</span>
+          </div>
+        </div>
+      )}
+
+      {bonusRetriggerFlash && <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>}
+
       <div style={{ position: 'relative' }}>
-        <SlotMachine spinning={spinning} result={pendingRound?.outcome} turbo={turbo} onSettled={handleSettled} />
+        <SlotMachine
+          spinning={displaySpinning}
+          result={displayResult}
+          turbo={bonusActive ? true : turbo}
+          onSettled={displayOnSettled}
+        />
 
         {isBigWin && (
           <div className="slot-bigwin-overlay">
@@ -297,8 +391,7 @@ function Slots() {
               {multiplier >= 80 ? '¡Premio mayor!' : '¡Gran premio!'}
             </div>
             <div className="slot-bigwin-amount">{formatCents(round.payout_cents)}</div>
-            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>
-              Continuar
+            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>              Continuar
             </button>
           </div>
         )}
@@ -339,7 +432,7 @@ function Slots() {
           </button>
         ) : (
           <button className="btn slot-spin-btn" onClick={() => spin()} disabled={spinning || !canAffordNormal}>
-            {spinning ? 'Girando…' : `Girar · ${formatCents(normalCostCents)}`}
+            {bonusActive ? 'En bono…' : spinning ? 'Girando…' : `Girar · ${formatCents(normalCostCents)}`}
           </button>
         )}
       </div>

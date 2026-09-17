@@ -118,12 +118,15 @@ const SLOT_SYMBOLS = [
 ];
 
 const SYMBOL_PAYOUTS = Object.fromEntries(SLOT_SYMBOLS.map((s) => [s.symbol, s.payout]));
-const SCATTER_PAYOUTS = { 3: 25, 4: 120, 5: 600 };
 // RTP medido por simulación (5M giros) en modo normal: ~97.2%, tasa de
 // victoria ~24.6%, scatter (3+) ~1 de cada 160 giros. El modo "ante"
 // (más probabilidad de scatter) y "comprar bono" (scatter garantizado)
 // bajan el RTP a propósito a cambio de esa probabilidad — así funcionan
-// en los juegos reales de este estilo; no son apuestas "gratis".
+// en los juegos reales de este estilo; no son apuestas "gratis". El
+// bono de giros gratis (ver más abajo) reemplazó el pago plano de
+// scatter por una ronda jugada de verdad, así que el RTP efectivo del
+// scatter ahora depende de cómo caigan esos giros — conviene re-simular
+// si se cambian BONUS_TIERS o RETRIGGER_SPINS.
 
 const BASE_TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
 
@@ -217,6 +220,80 @@ function countScatters(grid) {
   return count;
 }
 
+/** Evalúa las 10 líneas de un grid ya girado. No toca el scatter. */
+function evaluateLines(grid) {
+  let lineMultiplierSum = 0;
+  const winningLines = [];
+  PAYLINES.forEach((pattern, lineIndex) => {
+    const symbolsOnLine = pattern.map((row, reel) => grid[reel][row]);
+    const combo = evaluatePayline(symbolsOnLine);
+    if (!combo) return;
+    const mult = SYMBOL_PAYOUTS[combo.symbol]?.[combo.length] || 0;
+    if (mult <= 0) return;
+    lineMultiplierSum += mult;
+    winningLines.push({ line: lineIndex, symbol: combo.symbol, length: combo.length, multiplier: mult });
+  });
+  return { lineMultiplierSum, winningLines };
+}
+
+// =========================================================
+// BONO DE GIROS GRATIS — se dispara con 3+ scatters (natural, con ante
+// boosteado, o garantizado al comprar el bono). Durante el bono cada línea
+// ganadora se multiplica por el multiplicador del bono, y si vuelven a caer
+// 3+ scatters en un giro gratis, se suman más giros ("re-disparo"), igual
+// que en las tragamonedas reales de este estilo.
+// =========================================================
+
+const BONUS_TIERS = {
+  3: { spins: 8, multiplier: 2 },
+  4: { spins: 12, multiplier: 3 },
+  5: { spins: 15, multiplier: 5 },
+};
+const RETRIGGER_SPINS = 5;
+const MAX_BONUS_SPINS = 40; // tope de seguridad, incluyendo re-disparos
+
+function playFreeSpinsBonus(triggerScatterCount) {
+  const tier = BONUS_TIERS[Math.min(triggerScatterCount, 5)];
+  let spinsRemaining = tier.spins;
+  let spinsAwarded = tier.spins;
+  const spins = [];
+  let totalMultiplier = 0;
+
+  while (spinsRemaining > 0 && spins.length < MAX_BONUS_SPINS) {
+    const grid = spinSlotGrid(1); // pesos normales durante el bono
+    const { lineMultiplierSum, winningLines } = evaluateLines(grid);
+    const scatterCount = countScatters(grid);
+
+    let retriggerAmount = 0;
+    if (scatterCount >= 3 && spinsAwarded < MAX_BONUS_SPINS) {
+      retriggerAmount = Math.min(RETRIGGER_SPINS, MAX_BONUS_SPINS - spinsAwarded);
+      spinsRemaining += retriggerAmount;
+      spinsAwarded += retriggerAmount;
+    }
+
+    const spinMultiplier = lineMultiplierSum / PAYLINES.length;
+    const payoutMultiplier = spinMultiplier * tier.multiplier;
+    totalMultiplier += payoutMultiplier;
+
+    spins.push({
+      grid,
+      winningLines,
+      scatterCount,
+      retriggerAmount,
+      payoutMultiplier,
+    });
+    spinsRemaining -= 1;
+  }
+
+  return {
+    triggerScatterCount,
+    spinsAwarded,
+    bonusMultiplier: tier.multiplier,
+    spins,
+    totalMultiplier,
+  };
+}
+
 /**
  * Gira el grid y resuelve las 10 líneas + el scatter. El "multiplier"
  * devuelto ya combina ambos en un solo número por el que el caller
@@ -260,14 +337,21 @@ function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
   });
 
   const scatterCount = countScatters(grid);
-  const scatterMultiplier = scatterCount >= 3 ? SCATTER_PAYOUTS[Math.min(scatterCount, 5)] || 0 : 0;
 
-  const multiplier = lineMultiplierSum / PAYLINES.length + scatterMultiplier;
+  let bonus = null;
+  let bonusMultiplierTotal = 0;
+  if (scatterCount >= 3) {
+    bonus = playFreeSpinsBonus(scatterCount);
+    bonusMultiplierTotal = bonus.totalMultiplier;
+  }
+
+  const multiplier = lineMultiplierSum / PAYLINES.length + bonusMultiplierTotal;
 
   return {
     grid,
     winningLines,
     scatterCount,
+    bonus, // null si no se disparó el bono; si no, el detalle giro-por-giro para animar
     won: multiplier > 0,
     multiplier,
   };
@@ -277,6 +361,8 @@ module.exports = {
   spinRouletteWheel,
   resolveRouletteBet,
   playSlots,
+  playFreeSpinsBonus,
+  BONUS_TIERS,
   colorOf,
   columnOf,
   dozenOf,
