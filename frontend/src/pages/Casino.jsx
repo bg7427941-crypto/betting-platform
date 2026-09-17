@@ -191,6 +191,7 @@ function Slots() {
   const [autoplayTotal, setAutoplayTotal] = useState(null); // null = no está en autoplay
   const [autoplayRemaining, setAutoplayRemaining] = useState(0);
   const autoplayRef = useRef(false);
+  const pendingRoundRef = useRef(null); // guarda el round que disparó el bono, sin re-alimentar displayResult
 
   // --- reproducción del bono de giros gratis (backend ya jugó toda la
   // ronda de una vez; acá solo la vamos revelando giro por giro) ---
@@ -274,8 +275,12 @@ function Slots() {
 
   function handleSettled() {
     if (pendingRound?.outcome.bonus) {
-      // No revelamos `round` todavía — así el overlay de premio grande no
-      // tapa la reproducción del bono. Arrancamos la secuencia de giros.
+      // Guardamos el round en un ref (para revelarlo al final) y limpiamos
+      // el estado `pendingRound` — si lo dejáramos, al terminar el bono
+      // volvería a ser el `result` de la tragamonedas, se vería como "llegó
+      // un resultado nuevo", se re-animaría, y eso re-detectaría el bono y
+      // arrancaría todo de nuevo (el bucle que se repetía 2-3 veces).
+      pendingRoundRef.current = pendingRound;
       stakeAtBonusStart.current = stakeCents;
       setBonusInfo({
         bonusMultiplier: pendingRound.outcome.bonus.bonusMultiplier,
@@ -284,6 +289,7 @@ function Slots() {
       setBonusSpins(pendingRound.outcome.bonus.spins);
       setBonusIndex(0);
       setBonusRunningCents(0);
+      setPendingRound(null);
       setBonusActive(true);
       setBonusSpinning(true);
       return;
@@ -319,7 +325,7 @@ function Slots() {
         setBonusActive(false);
         setBonusSpinning(false);
         setSpinning(false);
-        setRound(pendingRound); // ahora sí, con el pago total ya calculado por el backend
+        setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
         continueAutoplayIfNeeded();
       }, pauseMs);
       bonusTimers.current.push(t);
