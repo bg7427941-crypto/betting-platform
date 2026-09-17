@@ -25,7 +25,15 @@ export default function Casino() {
         </button>
       </div>
 
-      {tab === 'roulette' ? <Roulette /> : <Slots />}
+      {tab === 'roulette' ? (
+        <div key="roulette" className="casino-tab-panel">
+          <Roulette />
+        </div>
+      ) : (
+        <div key="slots" className="casino-tab-panel">
+          <Slots />
+        </div>
+      )}
     </div>
   );
 }
@@ -129,7 +137,26 @@ function Roulette() {
               </div>
               <div style={{ marginTop: 6 }}>
                 {result.payout_cents > 0 ? (
-                  <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
+                  <span className="roulette-win-line">
+                    <svg
+                      key={result.payout_cents /* re-dispara el pop-in en cada victoria nueva */}
+                      className="roulette-win-chip"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle cx="12" cy="12" r="10" stroke="var(--gold)" strokeWidth="1.5" />
+                      <circle cx="12" cy="12" r="5.5" stroke="var(--gold)" strokeWidth="1.5" />
+                      <path
+                        d="M12 2v3.2M12 18.8V22M22 12h-3.2M5.2 12H2M19.07 4.93l-2.26 2.26M7.19 16.81l-2.26 2.26M19.07 19.07l-2.26-2.26M7.19 7.19L4.93 4.93"
+                        stroke="var(--gold)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
+                  </span>
                 ) : (
                   <span className="text-sage">Sin suerte esta vez</span>
                 )}
@@ -521,7 +548,8 @@ function Slots() {
         </button>
 
         {isAutoplaying ? (
-          <button className="btn-ghost slot-spin-btn" onClick={stopAutoplay}>
+          <button className="btn-ghost slot-spin-btn slot-autoplay-active" onClick={stopAutoplay}>
+            <span className="slot-autoplay-dot" />
             Detener ({autoplayRemaining})
           </button>
         ) : (
@@ -534,6 +562,15 @@ function Slots() {
           </button>
         )}
       </div>
+
+      {isAutoplaying && (
+        <div className="slot-autoplay-progress-track">
+          <div
+            className="slot-autoplay-progress-fill"
+            style={{ width: `${((autoplayTotal - autoplayRemaining) / autoplayTotal) * 100}%` }}
+          />
+        </div>
+      )}
 
       <div className="slot-ante-row">
         <span className="text-sage slot-ante-label">Apuesta ante (más chance de scatter):</span>
