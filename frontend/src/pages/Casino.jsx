@@ -5,13 +5,54 @@ import { RouletteWheel } from '../components/RouletteWheel';
 import { BettingTable } from '../components/BettingTable';
 import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
 
+function formatElapsed(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 export default function Casino() {
   const [tab, setTab] = useState('roulette');
+  // Contador de sesión: cuánto tiempo llevás jugando y el neto acumulado
+  // (ganado - apostado) desde que entraste a esta pantalla. Vive acá, no en
+  // Roulette/Slots, porque esos se re-montan al cambiar de tab (key={tab})
+  // y perderían el acumulado; cada uno avisa sus rondas vía onRoundSettled.
+  const sessionStartRef = useRef(Date.now());
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [sessionNetCents, setSessionNetCents] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - sessionStartRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  function handleRoundSettled(netCents) {
+    setSessionNetCents((prev) => prev + netCents);
+  }
 
   return (
     <div>
       <h1 className="page-title">Casino</h1>
       <p className="page-sub">Ruleta y tragamonedas. Saldo virtual — modo demo.</p>
+
+      <div className="session-tracker">
+        <span>
+          Sesión: <span className="mono">{formatElapsed(elapsedSeconds)}</span>
+        </span>
+        <span>
+          Neto:{' '}
+          <span
+            className={`mono ${
+              sessionNetCents > 0 ? 'text-gold' : sessionNetCents < 0 ? 'text-brick' : 'text-sage'
+            }`}
+          >
+            {sessionNetCents > 0 ? '+' : ''}
+            {formatCents(sessionNetCents)}
+          </span>
+        </span>
+      </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <button
@@ -27,18 +68,18 @@ export default function Casino() {
 
       {tab === 'roulette' ? (
         <div key="roulette" className="casino-tab-panel">
-          <Roulette />
+          <Roulette onRoundSettled={handleRoundSettled} />
         </div>
       ) : (
         <div key="slots" className="casino-tab-panel">
-          <Slots />
+          <Slots onRoundSettled={handleRoundSettled} />
         </div>
       )}
     </div>
   );
 }
 
-function Roulette() {
+function Roulette({ onRoundSettled }) {
   const { refresh } = useWallet();
   const [placedBets, setPlacedBets] = useState({}); // { key: { type, value, stakeCents } }
   const [selectedChip, setSelectedChip] = useState(5);
@@ -88,6 +129,7 @@ function Roulette() {
     setSpinning(false);
     setResult(pendingResult);
     setPlacedBets({});
+    onRoundSettled && onRoundSettled(pendingResult.payout_cents - pendingResult.stake_cents);
   }
 
   const wonBets = result?.outcome.bets.filter((b) => b.won) || [];
@@ -203,7 +245,7 @@ const DEFAULT_ANTE_TIERS = {
 const DEFAULT_BUY_BONUS_MULTIPLIER = 100;
 const ANTE_LABELS = { none: 'Normal', ante25: '+25%', ante50: '+50%', ante100: '+100%' };
 
-function Slots() {
+function Slots({ onRoundSettled }) {
   const { balanceCents, refresh } = useWallet();
   const [stakeCents, setStakeCents] = useState(500);
   const [anteTier, setAnteTier] = useState('none');
@@ -361,6 +403,7 @@ function Slots() {
 
     setSpinning(false);
     setRound(pendingRound);
+    onRoundSettled && onRoundSettled(pendingRound.payout_cents - pendingRound.stake_cents);
     continueAutoplayIfNeeded();
   }
 
@@ -417,6 +460,8 @@ function Slots() {
     setBonusOutroVisible(false);
     setSpinning(false);
     setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
+    onRoundSettled &&
+      onRoundSettled(pendingRoundRef.current.payout_cents - pendingRoundRef.current.stake_cents);
     continueAutoplayIfNeeded();
   }
 

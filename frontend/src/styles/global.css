@@ -180,6 +180,21 @@ button {
   max-width: 60ch;
 }
 
+/* Contador de sesión del casino — tiempo jugado y neto acumulado, visible
+   sin importar en qué tab (ruleta/slots) estés. Es información protectora,
+   no un dark pattern: ayuda a no perder noción de cuánto llevás jugando. */
+.session-tracker {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--sage);
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  padding: 8px 14px;
+  margin: -16px 0 24px;
+  width: fit-content;
+}
+
 /* ---------- panels & tickets ---------- */
 
 .panel {
