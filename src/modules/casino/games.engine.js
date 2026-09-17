@@ -99,18 +99,18 @@ const SCATTER = '💰';
 // payout: multiplicador del apostado-por-línea según cuántos seguidos
 // (3, 4 o 5) caen desde el carril 1 hacia la derecha.
 const SLOT_SYMBOLS = [
-  { symbol: '♣️', weight: 20, payout: { 3: 12, 4: 35, 5: 95 } },
-  { symbol: '♦️', weight: 20, payout: { 3: 12, 4: 35, 5: 95 } },
-  { symbol: '♥️', weight: 18, payout: { 3: 14, 4: 42, 5: 120 } },
-  { symbol: '♠️', weight: 18, payout: { 3: 14, 4: 42, 5: 120 } },
-  { symbol: '🔔', weight: 12, payout: { 3: 25, 4: 60, 5: 175 } },
-  { symbol: '⭐', weight: 10, payout: { 3: 35, 4: 95, 5: 235 } },
-  { symbol: '💎', weight: 6, payout: { 3: 60, 4: 175, 5: 600 } },
-  { symbol: '👑', weight: 4, payout: { 3: 120, 4: 350, 5: 1200 } },
-  { symbol: '7️⃣', weight: 2, payout: { 3: 235, 4: 700, 5: 2350 } },
+  { symbol: '♣️', weight: 20, payout: { 3: 10, 4: 30, 5: 81 } },
+  { symbol: '♦️', weight: 20, payout: { 3: 10, 4: 30, 5: 81 } },
+  { symbol: '♥️', weight: 18, payout: { 3: 12, 4: 36, 5: 102 } },
+  { symbol: '♠️', weight: 18, payout: { 3: 12, 4: 36, 5: 102 } },
+  { symbol: '🔔', weight: 12, payout: { 3: 21, 4: 51, 5: 149 } },
+  { symbol: '⭐', weight: 10, payout: { 3: 30, 4: 81, 5: 200 } },
+  { symbol: '💎', weight: 6, payout: { 3: 51, 4: 149, 5: 510 } },
+  { symbol: '👑', weight: 4, payout: { 3: 102, 4: 298, 5: 1020 } },
+  { symbol: '7️⃣', weight: 2, payout: { 3: 200, 4: 595, 5: 1998 } },
   // Wild: sustituye a cualquier símbolo pagante en una línea. También puede
   // formar su propia línea si caen 3+ wilds seguidos (payout propio, alto).
-  { symbol: WILD, weight: 3, payout: { 3: 175, 4: 600, 5: 1750 } },
+  { symbol: WILD, weight: 3, payout: { 3: 149, 4: 510, 5: 1488 } },
   // Scatter: paga en cualquier posición del grid (no necesita estar en una
   // línea ni ser consecutivo) — es el símbolo "de la suerte" que dispara
   // los pagos grandes y vistosos. Multiplica el apostado TOTAL, no por línea.
@@ -118,15 +118,19 @@ const SLOT_SYMBOLS = [
 ];
 
 const SYMBOL_PAYOUTS = Object.fromEntries(SLOT_SYMBOLS.map((s) => [s.symbol, s.payout]));
-// RTP medido por simulación (5M giros) en modo normal: ~97.2%, tasa de
-// victoria ~24.6%, scatter (3+) ~1 de cada 160 giros. El modo "ante"
-// (más probabilidad de scatter) y "comprar bono" (scatter garantizado)
-// bajan el RTP a propósito a cambio de esa probabilidad — así funcionan
-// en los juegos reales de este estilo; no son apuestas "gratis". El
-// bono de giros gratis (ver más abajo) reemplazó el pago plano de
-// scatter por una ronda jugada de verdad, así que el RTP efectivo del
-// scatter ahora depende de cómo caigan esos giros — conviene re-simular
-// si se cambian BONUS_TIERS o RETRIGGER_SPINS.
+// RTP medido por simulación (300k giros) en modo normal: ~70.3%, tasa de
+// victoria ~24.5% (frecuencia de "algo cae" sin cambios — solo se redujo
+// el tamaño promedio de los pagos), scatter (3+) ~1 de cada 158 giros.
+// OJO: 70% es agresivo para el estándar de la industria (la mayoría de
+// jurisdicciones reguladas exigen un RTP mínimo — verificar con MINCETUR
+// antes de llevar esto a producción con dinero real; puede que este
+// número no sea legal ahí). El modo "ante" y "comprar bono" bajan el RTP
+// todavía más a cambio de esa probabilidad — así funcionan en los juegos
+// reales de este estilo; no son apuestas "gratis". El bono de giros
+// gratis reemplazó el pago plano de scatter por una ronda jugada de
+// verdad, así que el RTP efectivo del scatter depende de cómo caigan
+// esos giros — conviene re-simular si se cambian BONUS_TIERS, pesos o
+// la tabla de pagos.
 
 const BASE_TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
 
@@ -245,9 +249,9 @@ function evaluateLines(grid) {
 // =========================================================
 
 const BONUS_TIERS = {
-  3: { spins: 8, multiplier: 2 },
-  4: { spins: 12, multiplier: 3 },
-  5: { spins: 15, multiplier: 5 },
+  3: { spins: 8, multiplier: 1.7 },
+  4: { spins: 12, multiplier: 2.6 },
+  5: { spins: 15, multiplier: 4.3 },
 };
 const RETRIGGER_SPINS = 5;
 const MAX_BONUS_SPINS = 40; // tope de seguridad, incluyendo re-disparos
