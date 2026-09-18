@@ -61,7 +61,7 @@ npm run dev        # levanta el servidor en modo desarrollo
   - Slots: `{ game: 'slots', stake_cents }` — grid de 5 carriles x 3 filas,
     10 líneas de pago fijas siempre activas, comodín (🃏, sustituye) y
     scatter (💰, paga en cualquier posición sobre el total apostado).
-    RTP calibrado por simulación en ~97% (ver
+    RTP calibrado por simulación en ~94% (ver
     `src/modules/casino/games.engine.js`).
 - `GET  /api/casino/history` — historial de rondas jugadas
 

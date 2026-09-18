@@ -238,11 +238,12 @@ const AUTOPLAY_GAP_MS = 550;
 // parpadeen los precios al entrar — deben coincidir con casino.service.js.
 const DEFAULT_ANTE_TIERS = {
   none: { costMultiplier: 1, scatterBoost: 1 },
-  ante25: { costMultiplier: 1.25, scatterBoost: 1.5 },
-  ante50: { costMultiplier: 1.5, scatterBoost: 2 },
-  ante100: { costMultiplier: 2, scatterBoost: 3 },
+  ante25: { costMultiplier: 1.25, scatterBoost: 1.72 },
+  ante50: { costMultiplier: 1.5, scatterBoost: 2.13 },
+  ante100: { costMultiplier: 2, scatterBoost: 2.66 },
 };
-const DEFAULT_BUY_BONUS_MULTIPLIER = 100;
+// Deben coincidir con casino.service.js.
+const DEFAULT_BUY_BONUS_MULTIPLIER = 28;
 const ANTE_LABELS = { none: 'Normal', ante25: '+25%', ante50: '+50%', ante100: '+100%' };
 
 function Slots({ onRoundSettled }) {

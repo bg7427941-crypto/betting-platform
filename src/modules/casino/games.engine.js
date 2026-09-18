@@ -99,18 +99,18 @@ const SCATTER = '💰';
 // payout: multiplicador del apostado-por-línea según cuántos seguidos
 // (3, 4 o 5) caen desde el carril 1 hacia la derecha.
 const SLOT_SYMBOLS = [
-  { symbol: '♣️', weight: 20, payout: { 3: 10, 4: 30, 5: 81 } },
-  { symbol: '♦️', weight: 20, payout: { 3: 10, 4: 30, 5: 81 } },
-  { symbol: '♥️', weight: 18, payout: { 3: 12, 4: 36, 5: 102 } },
-  { symbol: '♠️', weight: 18, payout: { 3: 12, 4: 36, 5: 102 } },
-  { symbol: '🔔', weight: 12, payout: { 3: 21, 4: 51, 5: 149 } },
-  { symbol: '⭐', weight: 10, payout: { 3: 30, 4: 81, 5: 200 } },
-  { symbol: '💎', weight: 6, payout: { 3: 51, 4: 149, 5: 510 } },
-  { symbol: '👑', weight: 4, payout: { 3: 102, 4: 298, 5: 1020 } },
-  { symbol: '7️⃣', weight: 2, payout: { 3: 200, 4: 595, 5: 1998 } },
+  { symbol: '♣️', weight: 20, payout: { 3: 13, 4: 40, 5: 108 } },
+  { symbol: '♦️', weight: 20, payout: { 3: 13, 4: 40, 5: 108 } },
+  { symbol: '♥️', weight: 18, payout: { 3: 16, 4: 48, 5: 136 } },
+  { symbol: '♠️', weight: 18, payout: { 3: 16, 4: 48, 5: 136 } },
+  { symbol: '🔔', weight: 12, payout: { 3: 28, 4: 68, 5: 199 } },
+  { symbol: '⭐', weight: 10, payout: { 3: 40, 4: 108, 5: 267 } },
+  { symbol: '💎', weight: 6, payout: { 3: 68, 4: 199, 5: 681 } },
+  { symbol: '👑', weight: 4, payout: { 3: 136, 4: 398, 5: 1361 } },
+  { symbol: '7️⃣', weight: 2, payout: { 3: 267, 4: 794, 5: 2666 } },
   // Wild: sustituye a cualquier símbolo pagante en una línea. También puede
   // formar su propia línea si caen 3+ wilds seguidos (payout propio, alto).
-  { symbol: WILD, weight: 3, payout: { 3: 149, 4: 510, 5: 1488 } },
+  { symbol: WILD, weight: 3, payout: { 3: 199, 4: 681, 5: 1986 } },
   // Scatter: paga en cualquier posición del grid (no necesita estar en una
   // línea ni ser consecutivo) — es el símbolo "de la suerte" que dispara
   // los pagos grandes y vistosos. Multiplica el apostado TOTAL, no por línea.
@@ -118,29 +118,49 @@ const SLOT_SYMBOLS = [
 ];
 
 const SYMBOL_PAYOUTS = Object.fromEntries(SLOT_SYMBOLS.map((s) => [s.symbol, s.payout]));
-// RTP medido por simulación (300k giros) en modo normal: ~70.3%, tasa de
-// victoria ~24.5% (frecuencia de "algo cae" sin cambios — solo se redujo
-// el tamaño promedio de los pagos), scatter (3+) ~1 de cada 158 giros.
-// OJO: 70% es agresivo para el estándar de la industria (la mayoría de
-// jurisdicciones reguladas exigen un RTP mínimo — verificar con MINCETUR
-// antes de llevar esto a producción con dinero real; puede que este
-// número no sea legal ahí). El modo "ante" y "comprar bono" bajan el RTP
-// todavía más a cambio de esa probabilidad — así funcionan en los juegos
-// reales de este estilo; no son apuestas "gratis". El bono de giros
-// gratis reemplazó el pago plano de scatter por una ronda jugada de
-// verdad, así que el RTP efectivo del scatter depende de cómo caigan
-// esos giros — conviene re-simular si se cambian BONUS_TIERS, pesos o
-// la tabla de pagos.
+// RTP medido por simulación (~1.2M giros por modo, ver /tmp/final_check.js
+// en la sesión que hizo este ajuste) — pagos reescalados x1.334 respecto a
+// la versión anterior (que daba ~70.3% real, muy por debajo de lo que decía
+// este mismo comentario antes):
+//   normal            ~94%  (scatter 3+ ~1 de cada 160 giros)
+//   ante +25%         ~94%  (scatterBoost 1.72, ~1 de cada 39)
+//   ante +50%         ~94%  (scatterBoost 2.13, ~1 de cada 23)
+//   ante +100%        ~94%  (scatterBoost 2.66, ~1 de cada 14)
+//   comprar bono      ~95%  (costMultiplier 28, antes 100 → eso daba ~26%
+//                             de RTP real, muy por debajo de cualquier otra
+//                             apuesta del juego)
+// Los cuatro tiers de ANTE_TIERS quedaron calibrados al mismo ~94% real
+// (rawRTP / costMultiplier) que el juego normal — antes "ante100" pagaba de
+// más de forma sistemática (RTP medido ~170%, se podía farmear saldo
+// infinito con ese modo) y los otros dos pagaban de menos de lo que sus
+// nombres ("+25%"/"+50%" de costo) hacían pensar.
+// OJO: verificar con MINCETUR (o el regulador que corresponda) el RTP
+// mínimo exigido antes de llevar esto a producción con dinero real — 94%
+// es un valor típico de industria, pero no una cifra legal garantizada en
+// ninguna jurisdicción específica. Si se cambia BONUS_TIERS, los pesos o la
+// tabla de pagos, hay que volver a simular — el RTP no es obvio a simple
+// vista con un motor de bono como este.
 
 const BASE_TOTAL_SLOT_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
 
-/** Devuelve la tabla de pesos con el peso del scatter multiplicado por `scatterBoost`. */
+/** Devuelve la tabla de pesos con el peso del scatter multiplicado por `scatterBoost`.
+ * `crypto.randomInt` exige límites enteros, y con boosts como 1.5 el peso
+ * 3*1.5=4.5 rompía TODOS los giros en esa apuesta ("max must be a safe
+ * integer"). En vez de redondear el peso del scatter solo (lo que dejaba
+ * apenas ~12 valores de boost distintos, muy poca precisión para calibrar
+ * el RTP de cada apuesta ante), escalamos toda la tabla x100: así el boost
+ * puede tener 2 decimales de precisión y el peso sigue siendo entero. */
 function weightedSymbols(scatterBoost) {
   if (scatterBoost === 1) return { symbols: SLOT_SYMBOLS, totalWeight: BASE_TOTAL_SLOT_WEIGHT };
-  const symbols = SLOT_SYMBOLS.map((s) => (s.symbol === SCATTER ? { ...s, weight: s.weight * scatterBoost } : s));
+  const symbols = SLOT_SYMBOLS.map((s) => ({
+    ...s,
+    weight: s.symbol === SCATTER ? Math.round(s.weight * scatterBoost * 100) : s.weight * 100,
+  }));
   const totalWeight = symbols.reduce((sum, s) => sum + s.weight, 0);
   return { symbols, totalWeight };
 }
+
+
 
 function spinSymbolFrom(symbols, totalWeight) {
   let roll = crypto.randomInt(0, totalWeight);

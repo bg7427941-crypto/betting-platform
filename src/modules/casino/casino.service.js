@@ -80,16 +80,24 @@ async function playRoulette(userId, bets) {
 
 // "Apuesta ante" (como el Bet+ de otros proveedores): pagar más por giro
 // a cambio de mayor probabilidad de scatter. 'none' es el juego normal.
+// scatterBoost calibrado por simulación (~1M giros por tier) para que el
+// RTP real de cada tier (rawRTP / costMultiplier) ronde el 94%, igual que
+// el juego normal — antes "ante100" pagaba de más de forma sistemática
+// (RTP ~170%, se podía farmear saldo infinito) y "ante25"/"ante50" pagaban
+// de menos de lo que sus nombres ("+25%"/"+50%" de costo) sugerían.
 const ANTE_TIERS = {
   none: { costMultiplier: 1, scatterBoost: 1 },
-  ante25: { costMultiplier: 1.25, scatterBoost: 1.5 },
-  ante50: { costMultiplier: 1.5, scatterBoost: 2 },
-  ante100: { costMultiplier: 2, scatterBoost: 3 },
+  ante25: { costMultiplier: 1.25, scatterBoost: 1.72 },
+  ante50: { costMultiplier: 1.5, scatterBoost: 2.13 },
+  ante100: { costMultiplier: 2, scatterBoost: 2.66 },
 };
 
 // Comprar el bono: paga un múltiplo fijo de la apuesta base y el scatter
-// (3+) queda garantizado en ese mismo giro. Es una apuesta cara a propósito.
-const BUY_BONUS_COST_MULTIPLIER = 100;
+// (3+) queda garantizado en ese mismo giro. Es una apuesta cara a propósito,
+// pero calibrada al mismo ~94% de RTP que el resto (antes estaba en 100x,
+// lo que implicaba un RTP real de ~26% — muy por debajo de cualquier otra
+// apuesta del juego).
+const BUY_BONUS_COST_MULTIPLIER = 28;
 
 async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier = 'none' }) {
   if (!Number.isInteger(stakeCents) || stakeCents <= 0) {
