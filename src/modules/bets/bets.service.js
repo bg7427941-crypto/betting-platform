@@ -1,4 +1,4 @@
-const { withTransaction } = require('../../db');
+const { query, withTransaction } = require('../../db');
 
 /**
  * Coloca una apuesta deportiva: valida la cuota, descuenta el saldo y crea
@@ -80,4 +80,37 @@ async function placeBet(userId, { eventId, oddsId, stakeCents }) {
   });
 }
 
-module.exports = { placeBet };
+/**
+ * Apuestas del usuario, más recientes primero, con el contexto necesario
+ * para mostrarlas sin que el frontend tenga que pedir cada evento aparte
+ * (equipos, mercado/selección elegida, cuota tomada, resultado si ya
+ * liquidó). Antes no existía ningún endpoint para esto — se podía apostar
+ * pero no había forma de ver en qué quedó cada apuesta.
+ */
+async function listUserBets(userId, { status, limit = 50, offset = 0 } = {}) {
+  const params = [userId];
+  let statusClause = '';
+  if (status) {
+    params.push(status);
+    statusClause = `AND b.status = $${params.length}`;
+  }
+  params.push(limit, offset);
+
+  const result = await query(
+    `SELECT
+       b.id, b.stake_cents, b.price_taken, b.status, b.payout_cents,
+       b.created_at, b.settled_at,
+       o.market, o.selection,
+       e.id AS event_id, e.sport, e.home_team, e.away_team, e.starts_at, e.status AS event_status, e.result
+     FROM bets b
+     JOIN odds o ON o.id = b.odds_id
+     JOIN sport_events e ON e.id = b.event_id
+     WHERE b.user_id = $1 ${statusClause}
+     ORDER BY b.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+  return result.rows;
+}
+
+module.exports = { placeBet, listUserBets };

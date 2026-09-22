@@ -1475,6 +1475,28 @@ button {
   border-color: var(--brick);
 }
 
+.badge-pending {
+  color: var(--sage);
+  border-color: var(--line);
+}
+
+.badge-won {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.badge-lost {
+  color: var(--brick);
+  border-color: var(--brick);
+  opacity: 0.8;
+}
+
+.badge-void {
+  color: var(--sage);
+  border-color: var(--line);
+  opacity: 0.6;
+}
+
 .admin-section {
   margin-bottom: 28px;
 }

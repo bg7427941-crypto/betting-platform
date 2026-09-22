@@ -38,6 +38,7 @@ export const api = {
   listEvents: () => request('/api/sports/events'),
   getEvent: (id) => request(`/api/sports/events/${id}`),
   placeBet: (payload) => request('/api/sports/bets', { method: 'POST', body: payload }),
+  listMyBets: () => request('/api/sports/bets'),
 
   playCasino: (payload) => request('/api/casino/play', { method: 'POST', body: payload }),
   getSlotsConfig: () => request('/api/casino/slots/config'),

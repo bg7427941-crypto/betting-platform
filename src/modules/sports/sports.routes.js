@@ -40,6 +40,20 @@ router.post('/bets', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/bets', requireAuth, async (req, res) => {
+  try {
+    const { status, limit, offset } = req.query;
+    const bets = await betsService.listUserBets(req.userId, {
+      status: status || undefined,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+    res.json(bets);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 // ---------- Admin (protegidas con requireAdmin) ----------
 router.get('/admin/events', requireAuth, requireAdmin, async (req, res) => {
   try {
