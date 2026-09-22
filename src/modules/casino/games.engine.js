@@ -118,20 +118,22 @@ const SLOT_SYMBOLS = [
 ];
 
 const SYMBOL_PAYOUTS = Object.fromEntries(SLOT_SYMBOLS.map((s) => [s.symbol, s.payout]));
-// RTP medido por simulación (~1.2M giros por modo) con el bono ORIGINAL de
-// giros gratis (multiplicador fijo por tier, sin coronar carriles) —
-// pagos reescalados x1.334 respecto a la versión previa a esa medición:
+// RTP medido por simulación (~1.2M giros por modo, ver /tmp/final_check.js
+// en la sesión que hizo este ajuste) — pagos reescalados x1.334 respecto a
+// la versión anterior (que daba ~70.3% real, muy por debajo de lo que decía
+// este mismo comentario antes):
 //   normal            ~94%  (scatter 3+ ~1 de cada 160 giros)
-//   ante +25%..+100%  ~94%
-//   comprar bono      ~95%
-// Esos números YA NO valen tal cual: se agregó el bono "Corona Ascendente"
-// (carriles que se vuelven comodín + multiplicador que escala, ver el
-// bloque grande más abajo) y el ante/costo de compra del bono se
-// recalibraron en casino.service.js para ese bono nuevo — los valores
-// actuales de ANTE_TIERS y BUY_BONUS_COST_MULTIPLIER están ahí, con su
-// propio comentario de calibración. Esta tabla de SLOT_SYMBOLS (los pagos
-// de líneas normales, sin bono) no cambió y sigue siendo la base ~94% de
-// la que parte todo lo demás.
+//   ante +25%         ~94%  (scatterBoost 1.72, ~1 de cada 39)
+//   ante +50%         ~94%  (scatterBoost 2.13, ~1 de cada 23)
+//   ante +100%        ~94%  (scatterBoost 2.66, ~1 de cada 14)
+//   comprar bono      ~95%  (costMultiplier 28, antes 100 → eso daba ~26%
+//                             de RTP real, muy por debajo de cualquier otra
+//                             apuesta del juego)
+// Los cuatro tiers de ANTE_TIERS quedaron calibrados al mismo ~94% real
+// (rawRTP / costMultiplier) que el juego normal — antes "ante100" pagaba de
+// más de forma sistemática (RTP medido ~170%, se podía farmear saldo
+// infinito con ese modo) y los otros dos pagaban de menos de lo que sus
+// nombres ("+25%"/"+50%" de costo) hacían pensar.
 // OJO: verificar con MINCETUR (o el regulador que corresponda) el RTP
 // mínimo exigido antes de llevar esto a producción con dinero real — 94%
 // es un valor típico de industria, pero no una cifra legal garantizada en
@@ -259,106 +261,20 @@ function evaluateLines(grid) {
 }
 
 // =========================================================
-// BONO "CORONA ASCENDENTE" — se dispara con 3+ scatters (natural, con ante
-// boosteado, o garantizado al comprar el bono). A diferencia de un bono de
-// giros gratis genérico, acá ningún scatter que cae DURANTE el bono es
-// ruido: cuando un carril acumula CROWN_THRESHOLD scatters (no hace falta
-// que sea en el mismo giro), se "corona" — su fila del medio queda comodín
-// fijo el resto del bono — y cada corona empuja el multiplicador hacia
-// arriba. El multiplicador nunca baja: sube con cada carril coronado y con
-// cada giro ganador, así que el final del bono siempre paga mejor que el
-// arranque. Si se coronan los 5 carriles ("Corona Total") hay un empujón
-// único de multiplicador — momento raro, pero vistoso. 3+ scatters en un
-// solo giro siguen sumando giros extra ("re-disparo"), igual que antes, y
-// de paso pueden coronar varios carriles a la vez (cuenta para los tres).
+// BONO DE GIROS GRATIS — se dispara con 3+ scatters (natural, con ante
+// boosteado, o garantizado al comprar el bono). Durante el bono cada línea
+// ganadora se multiplica por el multiplicador del bono, y si vuelven a caer
+// 3+ scatters en un giro gratis, se suman más giros ("re-disparo"), igual
+// que en las tragamonedas reales de este estilo.
 // =========================================================
 
 const BONUS_TIERS = {
-  3: { spins: 8, multiplier: 0.95 },
-  4: { spins: 12, multiplier: 1.45 },
-  5: { spins: 15, multiplier: 2.4 },
+  3: { spins: 8, multiplier: 1.7 },
+  4: { spins: 12, multiplier: 2.6 },
+  5: { spins: 15, multiplier: 4.3 },
 };
 const RETRIGGER_SPINS = 5;
 const MAX_BONUS_SPINS = 40; // tope de seguridad, incluyendo re-disparos
-
-// Todo este bloque (BONUS_TIERS de arriba incluido) está calibrado en
-// conjunto por simulación (ver /tmp/rtp_normal.js y /tmp/rtp_search.js de
-// la sesión que hizo este ajuste, ~1-2M giros por punto medido) para que el
-// RTP real vuelva a rondar el ~94% del resto del juego. El camino hasta acá
-// tuvo dos sorpresas grandes, por si se vuelve a tocar este bono:
-//   1. Coronar el carril ENTERO (las 3 filas) con solo 1 scatter llevaba el
-//      RTP normal a ~730% — un carril comodín completo es muchísimo más
-//      fuerte de lo que parece a simple vista, porque no solo suma pago,
-//      multiplica cuántas de las 10 líneas pueden ganar a la vez.
-//   2. Con umbral 1 casi cualquier bono terminaba con 2-3 carriles
-//      coronados; eso solo (sin ningún multiplicador extra) ya daba ~500%.
-// La versión final: CROWN_THRESHOLD=2 (dos scatters acumulados en el mismo
-// carril, a lo largo de todo el bono) + solo la fila del medio se vuelve
-// comodín (no las 3) + esta escalada moderada. Con eso:
-//   normal             ~94-96%  (bonusFreq ~0.6%, bono promedio ~15-17x)
-//   ante +25%/+50%/+100%  ~93-98%  (ver el comentario de ANTE_TIERS en
-//                                    casino.service.js — la medición es
-//                                    ruidosa porque el bono es un evento
-//                                    raro y de alta varianza; con más
-//                                    muestra (10M+ giros) se podría afinar
-//                                    más, pero para pasar a producción con
-//                                    dinero real de verdad esa corrida más
-//                                    grande hay que hacerla, no alcanza con
-//                                    esto)
-// Si se cambia CROWN_THRESHOLD, si la fila coronada vuelve a ser el carril
-// completo, o si cambian los pesos/payouts base, hay que repetir todo esto
-// — el RTP de este bono es muy sensible a esas tres cosas.
-const CROWN_MULTIPLIER_BUMP = 0.12; // por cada carril recién coronado
-const WIN_STREAK_STEP = 0.025; // por cada giro del bono que paga algo
-const CORONA_TOTAL_BONUS = 1; // empujón único al coronar el 5to carril
-const CROWN_THRESHOLD = 2; // scatters acumulados en un mismo carril para coronarlo
-
-// Tope de pago del BONO COMPLETO, en veces la apuesta base — el "max win"
-// que casi toda tragamonedas real publica. Sin esto, "Corona Total" (los 5
-// carriles comodín) deja cada giro restante pagando el máximo de forma
-// determinística — se simuló y algunas rondas superaban 80.000× la apuesta
-// en una sola ronda de bono, una cifra que fundiría el pozo de cualquier
-// operador real. Al llegar al tope, el bono corta ahí mismo (no sigue
-// regalando giros que ya pagarían 0) y el frontend debe avisar que se llegó
-// al máximo. 5000× es un valor de partida razonable para un slot de esta
-// volatilidad, no una cifra de negocio decidida — hay que confirmarla con
-// el equipo/regulador antes de producción, junto con la resimulación de RTP
-// pendiente (ver comentario de CROWN_MULTIPLIER_BUMP más arriba).
-const MAX_BONUS_TOTAL_MULTIPLIER = 5000;
-
-/** Registra los scatters de este giro contra el contador acumulado de cada
- * carril y corona (comodín fijo) cualquiera que llegue a CROWN_THRESHOLD.
- * Devuelve los índices recién coronados este giro; muta `reelHitCounts` y
- * `crownedReels` in-place. */
-function registerScatterHits(grid, reelHitCounts, crownedReels) {
-  const newlyCrowned = [];
-  for (let reel = 0; reel < REELS; reel += 1) {
-    if (crownedReels.has(reel)) continue;
-    if (!grid[reel].includes(SCATTER)) continue;
-    reelHitCounts[reel] += 1;
-    if (reelHitCounts[reel] >= CROWN_THRESHOLD) {
-      crownedReels.add(reel);
-      newlyCrowned.push(reel);
-    }
-  }
-  return newlyCrowned;
-}
-
-/** Devuelve un grid nuevo con la fila del medio de cada carril coronado
- * forzada a comodín (no las 3 filas — coronar el carril entero resultó
- * demasiado fuerte en la simulación: con 2-3 carriles comodín completos el
- * RTP del modo normal se iba a más de 200% incluso con el umbral alto).
- * Solo la fila central, que es además donde vive la línea de pago más
- * jugada ("medio"), se vuelve comodín fijo — el resto del carril sigue
- * girando normal. No muta el grid original. */
-function applyCrownedReels(grid, crownedReels) {
-  return grid.map((column, reel) => {
-    if (!crownedReels.has(reel)) return column;
-    const next = [...column];
-    next[1] = WILD; // fila del medio
-    return next;
-  });
-}
 
 function playFreeSpinsBonus(triggerScatterCount) {
   const tier = BONUS_TIERS[Math.min(triggerScatterCount, 5)];
@@ -366,50 +282,22 @@ function playFreeSpinsBonus(triggerScatterCount) {
   let spinsAwarded = tier.spins;
   const spins = [];
   let totalMultiplier = 0;
-  let currentMultiplier = tier.multiplier;
-  const crownedReels = new Set();
-  const reelHitCounts = new Array(REELS).fill(0);
-  let coronaTotalReached = false;
 
   while (spinsRemaining > 0 && spins.length < MAX_BONUS_SPINS) {
-    const naturalGrid = spinSlotGrid(1); // pesos normales durante el bono
-    // Se cuenta el scatter y se decide qué corona ANTES de pintar los
-    // comodines fijos, para que coronar un carril nunca "tape" el scatter
-    // que lo ganó ni cambie la chance de re-disparo de este mismo giro.
-    const scatterCount = countScatters(naturalGrid);
-    const newlyCrowned = registerScatterHits(naturalGrid, reelHitCounts, crownedReels);
-    const grid = applyCrownedReels(naturalGrid, crownedReels);
-
+    const grid = spinSlotGrid(1); // pesos normales durante el bono
     const { lineMultiplierSum, winningLines } = evaluateLines(grid);
-
-    const spinMultiplier = lineMultiplierSum / PAYLINES.length;
-    let payoutMultiplier = spinMultiplier * currentMultiplier;
-    let capReachedThisSpin = false;
-    if (totalMultiplier + payoutMultiplier >= MAX_BONUS_TOTAL_MULTIPLIER) {
-      payoutMultiplier = Math.max(0, MAX_BONUS_TOTAL_MULTIPLIER - totalMultiplier);
-      capReachedThisSpin = true;
-    }
-    totalMultiplier += payoutMultiplier;
+    const scatterCount = countScatters(grid);
 
     let retriggerAmount = 0;
-    if (!capReachedThisSpin && scatterCount >= 3 && spinsAwarded < MAX_BONUS_SPINS) {
+    if (scatterCount >= 3 && spinsAwarded < MAX_BONUS_SPINS) {
       retriggerAmount = Math.min(RETRIGGER_SPINS, MAX_BONUS_SPINS - spinsAwarded);
       spinsRemaining += retriggerAmount;
       spinsAwarded += retriggerAmount;
     }
 
-    // La escalada se aplica DESPUÉS de resolver el pago de este giro, para
-    // que el multiplicador que el jugador ve subir sea siempre el que va a
-    // regir el próximo giro — nunca se autoaplica con efecto retroactivo.
-    if (newlyCrowned.length > 0) currentMultiplier += newlyCrowned.length * CROWN_MULTIPLIER_BUMP;
-    if (lineMultiplierSum > 0) currentMultiplier += WIN_STREAK_STEP;
-
-    let coronaTotalThisSpin = false;
-    if (!coronaTotalReached && crownedReels.size === REELS) {
-      coronaTotalReached = true;
-      coronaTotalThisSpin = true;
-      currentMultiplier += CORONA_TOTAL_BONUS;
-    }
+    const spinMultiplier = lineMultiplierSum / PAYLINES.length;
+    const payoutMultiplier = spinMultiplier * tier.multiplier;
+    totalMultiplier += payoutMultiplier;
 
     spins.push({
       grid,
@@ -417,28 +305,14 @@ function playFreeSpinsBonus(triggerScatterCount) {
       scatterCount,
       retriggerAmount,
       payoutMultiplier,
-      newlyCrowned, // carriles recién coronados en ESTE giro (animar coronación)
-      crownedReels: [...crownedReels], // estado acumulado (pintar marco dorado persistente)
-      multiplierAfter: currentMultiplier, // valor de la escalera tras este giro
-      coronaTotal: coronaTotalThisSpin,
-      capReached: capReachedThisSpin,
     });
     spinsRemaining -= 1;
-    // Se llegó al tope de pago del bono: no tiene sentido seguir "regalando"
-    // giros que ya pagarían 0 — se corta acá y se avisa en el resultado.
-    if (capReachedThisSpin) break;
   }
 
   return {
     triggerScatterCount,
     spinsAwarded,
-    bonusMultiplier: tier.multiplier, // rung inicial (compat: es donde arranca la escalera)
-    startingMultiplier: tier.multiplier,
-    finalMultiplier: currentMultiplier,
-    crownedReelsCount: crownedReels.size,
-    coronaTotal: crownedReels.size === REELS,
-    capReached: spins[spins.length - 1]?.capReached || false,
-    spinsPlayed: spins.length, // puede ser < spinsAwarded si se cortó por el tope de pago
+    bonusMultiplier: tier.multiplier,
     spins,
     totalMultiplier,
   };
@@ -513,7 +387,6 @@ module.exports = {
   playSlots,
   playFreeSpinsBonus,
   BONUS_TIERS,
-  MAX_BONUS_TOTAL_MULTIPLIER,
   colorOf,
   columnOf,
   dozenOf,

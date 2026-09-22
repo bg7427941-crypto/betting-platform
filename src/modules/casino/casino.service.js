@@ -80,37 +80,24 @@ async function playRoulette(userId, bets) {
 
 // "Apuesta ante" (como el Bet+ de otros proveedores): pagar más por giro
 // a cambio de mayor probabilidad de scatter. 'none' es el juego normal.
-// scatterBoost recalibrado por simulación (~700k-2M giros por tier, ver
-// /tmp/rtp_search.js en la sesión que agregó el bono "Corona Ascendente")
-// para que el RTP real de cada tier (rawRTP / costMultiplier) ronde el 94%
-// otra vez — el bono nuevo paga distinto que el flat-multiplier de antes,
-// así que estos scatterBoost ya NO son los mismos valores que cuando solo
-// existía el bono de giros gratis simple. Dentro del margen de ruido de la
-// simulación (los triggers de bono son raros y de alta varianza, así que
-// +/-3-4 puntos de RTP en la medición es normal, no un error):
-//   ante25   costMultiplier 1.25, scatterBoost 1.50 → ~93-95%
-//   ante50   costMultiplier 1.50, scatterBoost 1.80 → ~94-95%
-//   ante100  costMultiplier 2.00, scatterBoost 2.30 → ~92-98%
-// Si se vuelve a tocar CROWN_THRESHOLD, CROWN_MULTIPLIER_BUMP,
-// WIN_STREAK_STEP o BONUS_TIERS en games.engine.js, estos tres números
-// quedan desactualizados y hay que recalibrarlos — no son independientes
-// del diseño del bono.
+// scatterBoost calibrado por simulación (~1M giros por tier) para que el
+// RTP real de cada tier (rawRTP / costMultiplier) ronde el 94%, igual que
+// el juego normal — antes "ante100" pagaba de más de forma sistemática
+// (RTP ~170%, se podía farmear saldo infinito) y "ante25"/"ante50" pagaban
+// de menos de lo que sus nombres ("+25%"/"+50%" de costo) sugerían.
 const ANTE_TIERS = {
   none: { costMultiplier: 1, scatterBoost: 1 },
-  ante25: { costMultiplier: 1.25, scatterBoost: 1.5 },
-  ante50: { costMultiplier: 1.5, scatterBoost: 1.8 },
-  ante100: { costMultiplier: 2, scatterBoost: 2.3 },
+  ante25: { costMultiplier: 1.25, scatterBoost: 1.72 },
+  ante50: { costMultiplier: 1.5, scatterBoost: 2.13 },
+  ante100: { costMultiplier: 2, scatterBoost: 2.66 },
 };
 
 // Comprar el bono: paga un múltiplo fijo de la apuesta base y el scatter
-// (3+) queda garantizado en ese mismo giro. Con "Corona Ascendente" el pago
-// promedio del bono subió bastante (comodines fijos + multiplicador que
-// escala), así que este costo también subió respecto al que tenía el bono
-// de giros gratis simple: la simulación de un giro con bono garantizado dio
-// un pago promedio de ~50-55x la apuesta (alta varianza; una muestra de
-// 150k giros osciló en ese rango), así que 28x se había quedado corto —
-// quedaría en ~53-59% de RTP real, muy por debajo del resto del juego.
-const BUY_BONUS_COST_MULTIPLIER = 57;
+// (3+) queda garantizado en ese mismo giro. Es una apuesta cara a propósito,
+// pero calibrada al mismo ~94% de RTP que el resto (antes estaba en 100x,
+// lo que implicaba un RTP real de ~26% — muy por debajo de cualquier otra
+// apuesta del juego).
+const BUY_BONUS_COST_MULTIPLIER = 28;
 
 async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier = 'none' }) {
   if (!Number.isInteger(stakeCents) || stakeCents <= 0) {

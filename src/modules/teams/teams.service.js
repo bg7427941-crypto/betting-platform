@@ -19,14 +19,14 @@ async function listTeams(sport) {
   if (sport) {
     assertValidSport(sport);
     const result = await query(
-      `SELECT id, name, sport, attack_rating, defense_rating, elo_rating, notes, updated_at
+      `SELECT id, name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes, updated_at
        FROM teams WHERE sport = $1 ORDER BY name ASC`,
       [sport]
     );
     return result.rows;
   }
   const result = await query(
-    `SELECT id, name, sport, attack_rating, defense_rating, elo_rating, notes, updated_at
+    `SELECT id, name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes, updated_at
      FROM teams ORDER BY sport ASC, name ASC`
   );
   return result.rows;
@@ -34,7 +34,7 @@ async function listTeams(sport) {
 
 async function getTeam(id) {
   const result = await query(
-    `SELECT id, name, sport, attack_rating, defense_rating, elo_rating, notes, updated_at
+    `SELECT id, name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes, updated_at
      FROM teams WHERE id = $1`,
     [id]
   );
@@ -76,23 +76,39 @@ function validateRatings({ attackRating, defenseRating, eloRating }) {
   }
 }
 
-async function createTeam({ name, sport, attackRating, defenseRating, eloRating, notes }) {
+const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+
+function validateIdentity({ country, league, color }) {
+  if (country !== undefined && country !== null && !isNonEmptyString(country, 100)) {
+    throw Object.assign(new Error('country debe ser un texto de hasta 100 caracteres'), { status: 400 });
+  }
+  if (league !== undefined && league !== null && !isNonEmptyString(league, 100)) {
+    throw Object.assign(new Error('league debe ser un texto de hasta 100 caracteres'), { status: 400 });
+  }
+  if (color !== undefined && color !== null && !HEX_COLOR_RE.test(color)) {
+    throw Object.assign(new Error('color debe ser un hex de 6 dígitos, ej. #1F6F4C'), { status: 400 });
+  }
+}
+
+async function createTeam({ name, sport, country, league, color, attackRating, defenseRating, eloRating, notes }) {
   if (!isNonEmptyString(name, 100)) {
     throw Object.assign(new Error('name es obligatorio'), { status: 400 });
   }
   assertValidSport(sport);
+  validateIdentity({ country, league, color });
   validateRatings({ attackRating, defenseRating, eloRating });
 
   const result = await query(
-    `INSERT INTO teams (name, sport, attack_rating, defense_rating, elo_rating, notes)
-     VALUES ($1, $2, COALESCE($3, 1.000), COALESCE($4, 1.000), COALESCE($5, 1500.00), $6)
-     RETURNING id, name, sport, attack_rating, defense_rating, elo_rating, notes, updated_at`,
-    [name.trim(), sport, attackRating, defenseRating, eloRating, notes || null]
+    `INSERT INTO teams (name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes)
+     VALUES ($1, $2, $3, $4, $5, COALESCE($6, 1.000), COALESCE($7, 1.000), COALESCE($8, 1500.00), $9)
+     RETURNING id, name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes, updated_at`,
+    [name.trim(), sport, country || null, league || null, color || null, attackRating, defenseRating, eloRating, notes || null]
   );
   return result.rows[0];
 }
 
-async function updateTeamStats(id, { attackRating, defenseRating, eloRating, notes }) {
+async function updateTeamStats(id, { country, league, color, attackRating, defenseRating, eloRating, notes }) {
+  validateIdentity({ country, league, color });
   validateRatings({ attackRating, defenseRating, eloRating });
 
   const existing = await getTeam(id);
@@ -102,14 +118,17 @@ async function updateTeamStats(id, { attackRating, defenseRating, eloRating, not
 
   const result = await query(
     `UPDATE teams SET
-       attack_rating = COALESCE($2, attack_rating),
-       defense_rating = COALESCE($3, defense_rating),
-       elo_rating = COALESCE($4, elo_rating),
-       notes = COALESCE($5, notes),
+       country = COALESCE($2, country),
+       league = COALESCE($3, league),
+       color = COALESCE($4, color),
+       attack_rating = COALESCE($5, attack_rating),
+       defense_rating = COALESCE($6, defense_rating),
+       elo_rating = COALESCE($7, elo_rating),
+       notes = COALESCE($8, notes),
        updated_at = now()
      WHERE id = $1
-     RETURNING id, name, sport, attack_rating, defense_rating, elo_rating, notes, updated_at`,
-    [id, attackRating, defenseRating, eloRating, notes]
+     RETURNING id, name, sport, country, league, color, attack_rating, defense_rating, elo_rating, notes, updated_at`,
+    [id, country, league, color, attackRating, defenseRating, eloRating, notes]
   );
   return result.rows[0];
 }

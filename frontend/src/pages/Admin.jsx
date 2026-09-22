@@ -22,6 +22,72 @@ const SPORTS = [
   { value: 'voley', label: 'Vóley' },
 ];
 
+// Paleta de "fichas" para los escudos — mismo lenguaje visual que las fichas
+// de la ruleta. Si el equipo no tiene color propio, se deriva uno estable a
+// partir del nombre (mismo equipo → siempre el mismo color, sin guardar nada).
+const TEAM_PALETTE = ['#C9A227', '#3D8C6C', '#B5473A', '#3A6EA5', '#7A4FA3', '#C97A3D', '#4F8F8F', '#9C4F6E'];
+
+function colorForName(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return TEAM_PALETTE[hash % TEAM_PALETTE.length];
+}
+
+function initialsForName(name) {
+  const words = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+/** Escudo circular — mismo lenguaje visual que las fichas de la ruleta. */
+function TeamCrest({ name, color, size = 34 }) {
+  return (
+    <div
+      className="team-crest"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.36,
+        background: color || colorForName(name || ''),
+      }}
+      title={name}
+    >
+      {initialsForName(name)}
+    </div>
+  );
+}
+
+/** Slider + valor + barra de contexto (con marca en el punto "promedio"). */
+function RatingSlider({ label, hint, value, onChange, min, max, step, average, formatValue, style }) {
+  const num = Number(value);
+  const pctValue = Math.min(100, Math.max(0, ((num - min) / (max - min)) * 100));
+  const pctAverage = average != null ? Math.min(100, Math.max(0, ((average - min) / (max - min)) * 100)) : null;
+  return (
+    <div className="field rating-field" style={style}>
+      <label>
+        {label}
+        {hint && <span className="rating-hint"> — {hint}</span>}
+      </label>
+      <div className="rating-slider-row">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <span className="mono rating-value">{formatValue ? formatValue(num) : num}</span>
+      </div>
+      <div className="rating-bar-track">
+        <div className="rating-bar-fill" style={{ width: `${pctValue}%` }} />
+        {pctAverage != null && <div className="rating-bar-average" style={{ left: `${pctAverage}%` }} />}
+      </div>
+    </div>
+  );
+}
+
 function pct(p) {
   return `${(p * 100).toFixed(1)}%`;
 }
@@ -140,6 +206,9 @@ function SummaryCards({ summary }) {
 function CreateTeamForm({ onCreated }) {
   const [name, setName] = useState('');
   const [sport, setSport] = useState('futbol');
+  const [country, setCountry] = useState('');
+  const [league, setLeague] = useState('');
+  const [color, setColor] = useState('');
   const [attackRating, setAttackRating] = useState('1.00');
   const [defenseRating, setDefenseRating] = useState('1.00');
   const [eloRating, setEloRating] = useState('1500');
@@ -156,11 +225,17 @@ function CreateTeamForm({ onCreated }) {
       await api.adminCreateTeam({
         name,
         sport,
+        country: country.trim() || undefined,
+        league: league.trim() || undefined,
+        color: color || undefined,
         attackRating: isFutbol ? Number(attackRating) : undefined,
         defenseRating: isFutbol ? Number(defenseRating) : undefined,
         eloRating: !isFutbol ? Number(eloRating) : undefined,
       });
       setName('');
+      setCountry('');
+      setLeague('');
+      setColor('');
       setMessage('Equipo creado.');
       await onCreated();
     } catch (err) {
@@ -171,60 +246,86 @@ function CreateTeamForm({ onCreated }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="inline-form">
-      <div className="field">
-        <label htmlFor="team-name">Nombre</label>
-        <input id="team-name" value={name} onChange={(e) => setName(e.target.value)} required />
+    <form onSubmit={handleSubmit} className="team-form">
+      <div className="team-form-identity">
+        <TeamCrest name={name} color={color} size={44} />
+        <div style={{ flex: 1, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div className="field" style={{ flex: 2, minWidth: 160, marginBottom: 0 }}>
+            <label htmlFor="team-name">Nombre</label>
+            <input id="team-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="field" style={{ minWidth: 130, marginBottom: 0 }}>
+            <label htmlFor="team-sport">Deporte</label>
+            <select id="team-sport" value={sport} onChange={(e) => setSport(e.target.value)}>
+              {SPORTS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 60, marginBottom: 0 }}>
+            <label htmlFor="team-color">Color</label>
+            <input
+              id="team-color"
+              type="color"
+              className="team-color-input"
+              value={color || colorForName(name || 'equipo')}
+              onChange={(e) => setColor(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
-      <div className="field">
-        <label htmlFor="team-sport">Deporte</label>
-        <select id="team-sport" value={sport} onChange={(e) => setSport(e.target.value)}>
-          {SPORTS.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="field" style={{ flex: 1, minWidth: 140, marginBottom: 0 }}>
+          <label htmlFor="team-country">País (opcional)</label>
+          <input id="team-country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Perú" />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 140, marginBottom: 0 }}>
+          <label htmlFor="team-league">Liga (opcional)</label>
+          <input id="team-league" value={league} onChange={(e) => setLeague(e.target.value)} placeholder="Liga 1" />
+        </div>
       </div>
 
       {isFutbol ? (
-        <>
-          <div className="field">
-            <label htmlFor="team-attack">Ataque (1.0 = promedio)</label>
-            <input
-              id="team-attack"
-              type="number"
-              min="0.1"
-              max="10"
-              step="0.05"
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <RatingSlider
+              label="Ataque"
+              hint="más alto = ataca mejor"
+              min={0.1}
+              max={10}
+              step={0.05}
+              average={1}
               value={attackRating}
-              onChange={(e) => setAttackRating(e.target.value)}
+              onChange={setAttackRating}
+              formatValue={(n) => n.toFixed(2)}
             />
           </div>
-          <div className="field">
-            <label htmlFor="team-defense">Defensa (1.0 = promedio)</label>
-            <input
-              id="team-defense"
-              type="number"
-              min="0.1"
-              max="10"
-              step="0.05"
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <RatingSlider
+              label="Defensa"
+              hint="más alto = defiende peor"
+              min={0.1}
+              max={10}
+              step={0.05}
+              average={1}
               value={defenseRating}
-              onChange={(e) => setDefenseRating(e.target.value)}
+              onChange={setDefenseRating}
+              formatValue={(n) => n.toFixed(2)}
             />
           </div>
-        </>
-      ) : (
-        <div className="field">
-          <label htmlFor="team-elo">Rating Elo</label>
-          <input
-            id="team-elo"
-            type="number"
-            min="100"
-            max="4000"
-            step="1"
-            value={eloRating}
-            onChange={(e) => setEloRating(e.target.value)}
-          />
         </div>
+      ) : (
+        <RatingSlider
+          label="Rating Elo"
+          min={100}
+          max={4000}
+          step={1}
+          average={1500}
+          value={eloRating}
+          onChange={setEloRating}
+          formatValue={(n) => Math.round(n)}
+        />
       )}
 
       <button className="btn" type="submit" disabled={submitting}>
@@ -287,49 +388,55 @@ function TeamRow({ team, onChanged }) {
     }
   }
 
+  const subtitle = [team.league, team.country].filter(Boolean).join(' · ');
+
   return (
-    <div className="ticket" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
-      <div style={{ minWidth: 140, fontFamily: 'var(--font-display)' }}>{team.name}</div>
+    <div className="ticket team-row" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 14 }}>
+      <div className="team-row-identity">
+        <TeamCrest name={team.name} color={team.color} />
+        <div>
+          <div style={{ fontFamily: 'var(--font-display)' }}>{team.name}</div>
+          {subtitle && <div className="text-sage" style={{ fontSize: 12 }}>{subtitle}</div>}
+        </div>
+      </div>
+
       {isFutbol ? (
         <>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Ataque</label>
-            <input
-              type="number"
-              min="0.1"
-              max="10"
-              step="0.05"
-              value={attackRating}
-              onChange={(e) => setAttackRating(e.target.value)}
-              style={{ width: 80 }}
-            />
-          </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Defensa</label>
-            <input
-              type="number"
-              min="0.1"
-              max="10"
-              step="0.05"
-              value={defenseRating}
-              onChange={(e) => setDefenseRating(e.target.value)}
-              style={{ width: 80 }}
-            />
-          </div>
+          <RatingSlider
+            label="Ataque"
+            min={0.1}
+            max={10}
+            step={0.05}
+            average={1}
+            value={attackRating}
+            onChange={setAttackRating}
+            formatValue={(n) => n.toFixed(2)}
+            style={{ minWidth: 170, marginBottom: 0 }}
+          />
+          <RatingSlider
+            label="Defensa"
+            min={0.1}
+            max={10}
+            step={0.05}
+            average={1}
+            value={defenseRating}
+            onChange={setDefenseRating}
+            formatValue={(n) => n.toFixed(2)}
+            style={{ minWidth: 170, marginBottom: 0 }}
+          />
         </>
       ) : (
-        <div className="field" style={{ marginBottom: 0 }}>
-          <label>Elo</label>
-          <input
-            type="number"
-            min="100"
-            max="4000"
-            step="1"
-            value={eloRating}
-            onChange={(e) => setEloRating(e.target.value)}
-            style={{ width: 90 }}
-          />
-        </div>
+        <RatingSlider
+          label="Elo"
+          min={100}
+          max={4000}
+          step={1}
+          average={1500}
+          value={eloRating}
+          onChange={setEloRating}
+          formatValue={(n) => Math.round(n)}
+          style={{ minWidth: 170, marginBottom: 0 }}
+        />
       )}
       <button className="btn-ghost" type="button" onClick={handleSave} disabled={submitting}>
         {submitting ? 'Guardando…' : 'Guardar'}

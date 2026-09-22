@@ -272,12 +272,6 @@ function Slots({ onRoundSettled }) {
   const [bonusRunningCents, setBonusRunningCents] = useState(0);
   const [bonusSpinning, setBonusSpinning] = useState(false);
   const [bonusRetriggerFlash, setBonusRetriggerFlash] = useState(false);
-  // "Corona Ascendente": carriles coronados (comodín fijo) acumulados hasta
-  // el giro que se está mostrando, destello cuando se corona uno nuevo, y
-  // la gran celebración aparte si se llegan a coronar los 5.
-  const [crownFlashReels, setCrownFlashReels] = useState([]);
-  const [coronaTotalVisible, setCoronaTotalVisible] = useState(false);
-  const [maxWinVisible, setMaxWinVisible] = useState(false);
   // Momento de "entrada" (se revela el multiplicador y la cantidad de giros
   // antes de tirar el primer carrete) y de "cierre" (se cuenta el total
   // acumulado antes de volver al juego base) — sin esto el bono se sentía
@@ -391,15 +385,11 @@ function Slots({ onRoundSettled }) {
       stakeAtBonusStart.current = stakeCents;
       setBonusInfo({
         bonusMultiplier: pendingRound.outcome.bonus.bonusMultiplier,
-        startingMultiplier: pendingRound.outcome.bonus.startingMultiplier,
         triggerScatterCount: pendingRound.outcome.bonus.triggerScatterCount,
       });
       setBonusSpins(pendingRound.outcome.bonus.spins);
       setBonusIndex(0);
       setBonusRunningCents(0);
-      setCrownFlashReels([]);
-      setCoronaTotalVisible(false);
-      setMaxWinVisible(false);
       setPendingRound(null);
       // No arrancamos los giros todavía: primero se anuncia el bono
       // (cuántos giros, qué multiplicador) y recién con eso — o con el
@@ -440,33 +430,8 @@ function Slots({ onRoundSettled }) {
       bonusTimers.current.push(flashTimer);
     }
 
-    if (currentSpin.newlyCrowned && currentSpin.newlyCrowned.length > 0) {
-      setCrownFlashReels(currentSpin.newlyCrowned);
-      const crownTimer = setTimeout(() => setCrownFlashReels([]), 1200);
-      bonusTimers.current.push(crownTimer);
-    }
-    if (currentSpin.coronaTotal) {
-      setCoronaTotalVisible(true);
-      const coronaTimer = setTimeout(() => setCoronaTotalVisible(false), 2200);
-      bonusTimers.current.push(coronaTimer);
-    }
-    if (currentSpin.capReached) {
-      setMaxWinVisible(true);
-      const maxWinTimer = setTimeout(() => setMaxWinVisible(false), 2400);
-      bonusTimers.current.push(maxWinTimer);
-    }
-
     const nextIndex = bonusIndex + 1;
-    // Se le da más aire al giro que acaba de coronar un carril o llegar a
-    // Corona Total — si no, el destello queda tapado por el siguiente giro.
-    const basePauseMs = turbo ? 260 : 550;
-    const pauseMs = currentSpin.capReached
-      ? basePauseMs + (turbo ? 1000 : 1900)
-      : currentSpin.coronaTotal
-      ? basePauseMs + (turbo ? 900 : 1700)
-      : currentSpin.newlyCrowned?.length > 0
-      ? basePauseMs + (turbo ? 300 : 550)
-      : basePauseMs;
+    const pauseMs = turbo ? 260 : 550;
 
     if (nextIndex < bonusSpins.length) {
       const t = setTimeout(() => {
@@ -478,7 +443,6 @@ function Slots({ onRoundSettled }) {
       const t = setTimeout(() => {
         setBonusActive(false);
         setBonusSpinning(false);
-        setCrownFlashReels([]);
         // Cierre del bono: se muestra el total acumulado contándose hacia
         // arriba antes de volver al juego base (ver finishBonusOutro).
         setBonusOutroTotalCents(newRunningCents);
@@ -523,33 +487,25 @@ function Slots({ onRoundSettled }) {
           ))}
         </div>
         <div className="slot-title">Corona Real</div>
-        <div className="slot-subtitle">5 carriles · 10 líneas · Corona Ascendente</div>
+        <div className="slot-subtitle">5 carriles · 10 líneas · comodín y scatter</div>
       </div>
 
       {bonusActive && bonusInfo && (
         <div className="slot-bonus-bar">
           <div>
-            <span className="text-gold">👑 Corona Ascendente</span>
+            <span className="text-gold">🎁 Bono de giros gratis</span>
             <span className="text-sage" style={{ marginLeft: 8 }}>
-              {(displayResult?.crownedReels?.length ?? 0)}/5 carriles coronados
+              multiplicador ×{bonusInfo.bonusMultiplier}
             </span>
           </div>
           <div className="mono">
-            Giro {bonusIndex + 1}/{bonusSpins.length} · ×
-            {(displayResult?.multiplierAfter ?? bonusInfo.startingMultiplier ?? bonusInfo.bonusMultiplier).toFixed(
-              2
-            )}{' '}
-            · Acumulado <span className="text-gold">{formatCents(bonusRunningCents)}</span>
+            Giro {bonusIndex + 1}/{bonusSpins.length} · Acumulado{' '}
+            <span className="text-gold">{formatCents(bonusRunningCents)}</span>
           </div>
         </div>
       )}
 
       {bonusRetriggerFlash && <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>}
-      {crownFlashReels.length > 0 && (
-        <div className="slot-crown-flash">
-          👑 {crownFlashReels.length > 1 ? 'Carriles coronados' : 'Carril coronado'} — comodín fijo el resto del bono
-        </div>
-      )}
 
       <div style={{ position: 'relative' }}>
         <SlotMachine
@@ -557,24 +513,7 @@ function Slots({ onRoundSettled }) {
           result={displayResult}
           turbo={bonusActive ? true : turbo}
           onSettled={displayOnSettled}
-          crownedReels={displayResult?.crownedReels}
-          newlyCrowned={displayResult?.newlyCrowned}
         />
-
-        {coronaTotalVisible && (
-          <div className="slot-corona-total-overlay">
-            <div className="slot-corona-total-crowns">👑👑👑👑👑</div>
-            <div className="slot-corona-total-title">¡CORONA TOTAL!</div>
-            <div className="slot-corona-total-detail">Los 5 carriles quedan comodín por el resto del bono</div>
-          </div>
-        )}
-
-        {maxWinVisible && (
-          <div className="slot-corona-total-overlay slot-maxwin-overlay">
-            <div className="slot-corona-total-title">¡PAGO MÁXIMO!</div>
-            <div className="slot-corona-total-detail">El bono llegó a su tope de pago y termina acá</div>
-          </div>
-        )}
 
         {isBigWin && (
           <div className="slot-bigwin-overlay">
@@ -601,15 +540,12 @@ function Slots({ onRoundSettled }) {
           <div className="slot-bonus-intro-overlay">
             <div className="slot-bonus-intro-ring" />
             <div className="slot-bonus-intro-kicker">
-              {bonusInfo.triggerScatterCount}× 💰 — ¡Corona Ascendente activada!
+              {bonusInfo.triggerScatterCount}× 💰 — ¡bono activado!
             </div>
             <div className="slot-bonus-intro-title">GIROS GRATIS</div>
             <div className="slot-bonus-intro-detail">
-              <span className="mono">{bonusSpins.length}</span> giros · arranca en{' '}
-              <span className="mono">×{(bonusInfo.startingMultiplier ?? bonusInfo.bonusMultiplier).toFixed(2)}</span>
-            </div>
-            <div className="slot-bonus-intro-subdetail text-sage">
-              2 scatters en el mismo carril lo coronan · el multiplicador solo sube
+              <span className="mono">{bonusSpins.length}</span> giros · multiplicador{' '}
+              <span className="mono">×{bonusInfo.bonusMultiplier}</span>
             </div>
             <button className="btn slot-bonus-intro-start" onClick={startBonusSpins}>
               Empezar
@@ -621,12 +557,6 @@ function Slots({ onRoundSettled }) {
           <div className="slot-bonus-outro-overlay">
             <div className="slot-bonus-outro-kicker">Bono terminado</div>
             <div className="slot-bonus-outro-amount mono">{formatCents(bonusOutroDisplayCents)}</div>
-            {pendingRoundRef.current?.outcome?.bonus && (
-              <div className="slot-bonus-outro-summary text-sage">
-                {pendingRoundRef.current.outcome.bonus.crownedReelsCount}/5 carriles coronados · multiplicador final ×
-                {pendingRoundRef.current.outcome.bonus.finalMultiplier.toFixed(2)}
-              </div>
-            )}
             <button className="btn slot-bonus-outro-continue" onClick={finishBonusOutro}>
               Continuar
             </button>
@@ -752,26 +682,11 @@ function Slots({ onRoundSettled }) {
       </div>
 
       <button className="slot-paytable-toggle" onClick={() => setShowPaytable((v) => !v)}>
-        {showPaytable ? 'Ocultar ayuda' : '¿Cómo funciona el bono?'}
+        {showPaytable ? 'Ocultar tabla de pagos' : 'Ver tabla de pagos'}
       </button>
 
       {showPaytable && (
         <div className="slot-paytable">
-          <div className="slot-howto">
-            <div className="slot-howto-title text-gold">👑 Corona Ascendente</div>
-            <ol className="slot-howto-steps">
-              <li>3, 4 o 5 símbolos 💰 en un giro activan el bono: más scatters = más giros gratis y un multiplicador inicial más alto.</li>
-              <li>
-                Durante el bono, cuando un carril acumula <strong>2 scatters</strong> (no hace falta que sea en el
-                mismo giro) se <strong>corona</strong>: su fila del medio queda comodín fijo por el resto del bono.
-              </li>
-              <li>El multiplicador solo sube — con cada carril coronado y con cada giro que gana algo. Nunca baja.</li>
-              <li>3+ scatters en un giro del bono dan 5 giros extra (re-disparo) y también cuentan para coronar carriles.</li>
-              <li>Coronar los 5 carriles es <strong>Corona Total</strong>: un empujón extra de multiplicador. El bono corta al llegar a 5000× la apuesta.</li>
-            </ol>
-          </div>
-
-          <div className="slot-paytable-title text-sage">Tabla de pagos</div>
           {SLOT_PAYTABLE.map((row) => (
             <div className="slot-paytable-row" key={row.symbol}>
               <span className="slot-paytable-symbol">{row.symbol}</span>

@@ -16,8 +16,18 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, sport, attackRating, defenseRating, eloRating, notes } = req.body;
-    const team = await teamsService.createTeam({ name, sport, attackRating, defenseRating, eloRating, notes });
+    const { name, sport, country, league, color, attackRating, defenseRating, eloRating, notes } = req.body;
+    const team = await teamsService.createTeam({
+      name,
+      sport,
+      country,
+      league,
+      color,
+      attackRating,
+      defenseRating,
+      eloRating,
+      notes,
+    });
     res.status(201).json(team);
   } catch (err) {
     if (err.code === '23505') {
@@ -29,8 +39,11 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
-    const { attackRating, defenseRating, eloRating, notes } = req.body;
+    const { country, league, color, attackRating, defenseRating, eloRating, notes } = req.body;
     const team = await teamsService.updateTeamStats(req.params.id, {
+      country,
+      league,
+      color,
       attackRating,
       defenseRating,
       eloRating,

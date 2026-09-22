@@ -728,67 +728,6 @@ button {
   }
 }
 
-/* "Corona Ascendente" — fila de coronas sobre el grid, una por carril,
-   como el marcador de un meter de colección: apaga/opaca hasta que ese
-   carril se corona, y ahí se queda dorada por el resto del bono. */
-.slot-crown-row {
-  display: grid;
-  grid-template-columns: repeat(5, 64px);
-  gap: 6px;
-  margin: 0 auto 6px;
-}
-
-.slot-crown-icon {
-  text-align: center;
-  font-size: 15px;
-  opacity: 0.3;
-  filter: grayscale(1);
-  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
-}
-
-.slot-crown-icon.crowned {
-  opacity: 1;
-  filter: none;
-  text-shadow: 0 0 8px rgba(201, 162, 39, 0.75);
-}
-
-.slot-crown-icon.just-crowned {
-  animation: slot-crown-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slot-crown-pop {
-  0% {
-    transform: scale(0.6) translateY(4px);
-    opacity: 0.3;
-  }
-  55% {
-    transform: scale(1.35) translateY(-3px);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Marco dorado persistente en las celdas de un carril ya coronado — más
-   quieto que slot-cell-hit (no pulsa), para que se lea como "estado fijo"
-   y no compita visualmente con las líneas ganadoras puntuales de ese giro. */
-.slot-cell-crowned {
-  border-color: var(--gold-dim);
-  box-shadow: inset 0 0 0 1px var(--gold-dim), 0 0 10px rgba(201, 162, 39, 0.3);
-  background: linear-gradient(180deg, rgba(201, 162, 39, 0.1), transparent 60%), var(--felt-3);
-}
-
-.slot-crown-flash {
-  text-align: center;
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 14px;
-  padding: 6px 0;
-  margin-bottom: 8px;
-  animation: slot-retrigger-pop 0.35s ease-out;
-}
-
 .slot-controls {
   display: flex;
   align-items: center;
@@ -1018,44 +957,6 @@ button {
   padding-top: 10px;
 }
 
-.slot-howto {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.slot-howto-title {
-  font-family: var(--font-display);
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.slot-howto-steps {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.slot-howto-steps li {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--parchment);
-}
-
-.slot-howto-steps strong {
-  color: var(--gold);
-  font-weight: 600;
-}
-
-.slot-paytable-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-}
-
 .slot-paytable-row {
   display: flex;
   align-items: center;
@@ -1248,13 +1149,6 @@ button {
   font-size: 14px;
 }
 
-.slot-bonus-intro-subdetail {
-  position: relative;
-  z-index: 2;
-  font-size: 11px;
-  margin-top: 2px;
-}
-
 .slot-bonus-intro-start {
   position: relative;
   z-index: 2;
@@ -1289,58 +1183,8 @@ button {
   color: var(--gold);
 }
 
-.slot-bonus-outro-summary {
-  font-size: 12px;
-}
-
 .slot-bonus-outro-continue {
   margin-top: 14px;
-}
-
-/* Momento culminante y raro: los 5 carriles quedaron comodín. Overlay
-   propio (no reutiliza slot-bigwin-overlay) porque puede coincidir con un
-   giro que además es premio grande, y cada uno anima algo distinto. */
-.slot-corona-total-overlay {
-  position: absolute;
-  inset: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: radial-gradient(circle at 50% 45%, rgba(201, 162, 39, 0.28), rgba(15, 45, 34, 0.94) 72%);
-  text-align: center;
-  z-index: 3;
-  animation: slot-bigwin-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-}
-
-.slot-corona-total-crowns {
-  font-size: 22px;
-  letter-spacing: 0.15em;
-  animation: slot-bonus-ring-pulse 1s ease-in-out infinite;
-}
-
-.slot-corona-total-title {
-  font-family: var(--font-display);
-  font-size: 28px;
-  color: var(--gold);
-  letter-spacing: 0.04em;
-  animation: slot-bonus-title-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
-}
-
-.slot-corona-total-detail {
-  color: var(--parchment);
-  font-size: 12px;
-  max-width: 260px;
-}
-
-.slot-maxwin-overlay {
-  background: radial-gradient(circle at 50% 45%, rgba(168, 64, 47, 0.22), rgba(15, 45, 34, 0.94) 72%);
-}
-
-.slot-maxwin-overlay .slot-corona-total-title {
-  color: var(--brick);
 }
 
 @keyframes result-reveal {
@@ -1654,4 +1498,102 @@ button {
 .inline-form .field {
   margin-bottom: 0;
   min-width: 120px;
+}
+
+/* ---------- equipos: escudo, color, sliders con barra ---------- */
+
+.team-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  max-width: 640px;
+}
+
+.team-form-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-row-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 170px;
+}
+
+/* Escudo circular — mismo lenguaje visual que las fichas de la ruleta
+   (círculo, no tarjeta), en vez de dejar al equipo como puro texto. */
+.team-crest {
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.team-color-input {
+  padding: 2px !important;
+  width: 44px;
+  height: 38px;
+  cursor: pointer;
+}
+
+.rating-field {
+  gap: 4px;
+}
+
+.rating-hint {
+  color: var(--sage);
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.rating-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating-slider-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--gold);
+}
+
+.rating-value {
+  color: var(--gold);
+  font-size: 13px;
+  min-width: 34px;
+  text-align: right;
+}
+
+.rating-bar-track {
+  position: relative;
+  height: 4px;
+  background: var(--line);
+}
+
+.rating-bar-fill {
+  height: 100%;
+  background: var(--gold-dim);
+}
+
+.rating-bar-average {
+  position: absolute;
+  top: -2px;
+  width: 1px;
+  height: 8px;
+  background: var(--sage);
+  opacity: 0.6;
+}
+
+.team-row {
+  align-items: center;
 }
