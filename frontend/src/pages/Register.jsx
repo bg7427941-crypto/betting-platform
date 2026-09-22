@@ -3,10 +3,40 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AuthHero } from '../components/AuthHero';
 
+const MIN_PASSWORD_LENGTH = 8;
+
+function passwordChecks(password) {
+  return {
+    length: password.length >= MIN_PASSWORD_LENGTH,
+    letter: /[A-Za-z]/.test(password),
+    number: /[0-9]/.test(password),
+  };
+}
+
+function PasswordRequirements({ password, touched }) {
+  const checks = passwordChecks(password);
+  const items = [
+    [checks.length, `Al menos ${MIN_PASSWORD_LENGTH} caracteres`],
+    [checks.letter, 'Al menos una letra'],
+    [checks.number, 'Al menos un número'],
+  ];
+  return (
+    <ul className="password-requirements">
+      {items.map(([met, label]) => (
+        <li key={label} className={met ? 'met' : touched ? 'unmet' : ''}>
+          <span className="password-requirements-mark">{met ? '✓' : '·'}</span>
+          {label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ fullName: '', email: '', password: '', birthDate: '' });
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -14,9 +44,17 @@ export default function Register() {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
+  const checks = passwordChecks(form.password);
+  const passwordValid = checks.length && checks.letter && checks.number;
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!passwordValid) {
+      setPasswordTouched(true);
+      setError('La contraseña no cumple los requisitos de abajo.');
+      return;
+    }
     setSubmitting(true);
     try {
       await register(form);
@@ -63,9 +101,11 @@ export default function Register() {
               type="password"
               value={form.password}
               onChange={update('password')}
-              minLength={8}
+              onBlur={() => setPasswordTouched(true)}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
+            <PasswordRequirements password={form.password} touched={passwordTouched} />
           </div>
           <button className="btn" type="submit" disabled={submitting} style={{ width: '100%' }}>
             {submitting ? 'Creando cuenta…' : 'Crear cuenta'}

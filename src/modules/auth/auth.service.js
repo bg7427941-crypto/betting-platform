@@ -4,12 +4,31 @@ const { query, withTransaction } = require('../../db');
 
 const SALT_ROUNDS = 12;
 const MIN_AGE_YEARS = Number(process.env.MIN_AGE_YEARS || 18);
+const MIN_PASSWORD_LENGTH = 8;
 
 function isOldEnough(birthDateStr) {
   const birthDate = new Date(birthDateStr);
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - MIN_AGE_YEARS);
   return birthDate <= cutoff;
+}
+
+/** Antes solo se chequeaba que la contraseña no estuviera vacía — se podía
+ * registrar una cuenta con "1". Exige largo mínimo + al menos una letra y
+ * un número (sin pedir símbolos raros, que suelen hacer que la gente
+ * termine anotando la contraseña en un post-it). */
+function passwordErrors(password) {
+  const errors = [];
+  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+    errors.push(`al menos ${MIN_PASSWORD_LENGTH} caracteres`);
+  }
+  if (!/[A-Za-z]/.test(password || '')) {
+    errors.push('al menos una letra');
+  }
+  if (!/[0-9]/.test(password || '')) {
+    errors.push('al menos un número');
+  }
+  return errors;
 }
 
 function signToken(user) {
@@ -23,6 +42,14 @@ function signToken(user) {
 async function register({ email, password, fullName, birthDate }) {
   if (!email || !password || !fullName || !birthDate) {
     throw Object.assign(new Error('Faltan campos obligatorios'), { status: 400 });
+  }
+
+  const pwErrors = passwordErrors(password);
+  if (pwErrors.length > 0) {
+    throw Object.assign(
+      new Error(`La contraseña debe tener ${pwErrors.join(', ')}`),
+      { status: 400 }
+    );
   }
 
   if (!isOldEnough(birthDate)) {
