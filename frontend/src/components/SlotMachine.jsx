@@ -47,7 +47,10 @@ export const SLOT_PAYTABLE = [
   { symbol: '♥️ ♠️', values: '1.4 · 4.2 · 12 ×' },
   { symbol: '♣️ ♦️', values: '1.2 · 3.5 · 9.5 ×' },
   { symbol: '🃏', values: 'comodín (17.5 · 60 · 175 ×) — sustituye a cualquier símbolo' },
-  { symbol: '💰', values: 'en cualquier posición: 25 · 120 · 600 × el total apostado' },
+  {
+    symbol: '💰',
+    values: 'en cualquier posición: 25 · 120 · 600 × el total apostado · 3+ activa Corona Ascendente',
+  },
 ];
 
 /**
@@ -56,8 +59,12 @@ export const SLOT_PAYTABLE = [
  * con `winningNumber`). result: { grid, winningLines, scatterCount } — al
  * llegar dispara la cascada de frenado carril por carril. onSettled: se
  * llama cuando termina esa cascada (recién ahí el padre revela el payout).
+ * crownedReels: índices de carril ya coronados (comodín fijo) durante el
+ * bono "Corona Ascendente" — se pintan con marco dorado persistente aunque
+ * ese giro puntual no forme línea ganadora en ellos. newlyCrowned: los que
+ * se coronaron justo en ESTE giro, para el destello de coronación.
  */
-export function SlotMachine({ spinning, result, turbo, onSettled }) {
+export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, newlyCrowned }) {
   const [displayGrid, setDisplayGrid] = useState(PLACEHOLDER_GRID);
   const [stoppedReels, setStoppedReels] = useState(0);
   const [showLines, setShowLines] = useState(false);
@@ -125,8 +132,28 @@ export function SlotMachine({ spinning, result, turbo, onSettled }) {
   }
   const hasScatterHighlight = showLines && scatterCount >= 3;
 
+  // Un carril solo se pinta "coronado" una vez que ese carril terminó de
+  // frenar (si no, se ve el marco dorado saltando a un carril que todavía
+  // está girando en blur, antes de que el jugador viera caer el scatter).
+  const crownedSet = new Set((crownedReels || []).filter((reel) => reel < stoppedReels || !spinning));
+  const newlyCrownedSet = new Set(showLines ? newlyCrowned || [] : []);
+
   return (
     <div className="slot-grid-frame">
+      {crownedReels && crownedReels.length > 0 && (
+        <div className="slot-crown-row" style={{ width: GRID_W }}>
+          {Array.from({ length: REELS }).map((_, reel) => (
+            <span
+              key={reel}
+              className={`slot-crown-icon ${crownedSet.has(reel) ? 'crowned' : ''} ${
+                newlyCrownedSet.has(reel) ? 'just-crowned' : ''
+              }`}
+            >
+              👑
+            </span>
+          ))}
+        </div>
+      )}
       <div className="slot-grid" style={{ width: GRID_W, height: GRID_H }}>
         {Array.from({ length: REELS }).flatMap((_, reel) =>
           Array.from({ length: ROWS }).map((__, row) => {
@@ -134,12 +161,13 @@ export function SlotMachine({ spinning, result, turbo, onSettled }) {
             const isSpinningCell = spinning && reel >= stoppedReels;
             const isHit = hitCells.has(`${reel}-${row}`);
             const isScatterCell = hasScatterHighlight && symbol === '💰';
+            const isCrownedCell = crownedSet.has(reel) && !isSpinningCell;
             return (
               <div
                 key={`${reel}-${row}`}
                 className={`slot-cell ${isHit ? 'slot-cell-hit' : ''} ${
                   isScatterCell ? 'slot-cell-scatter' : ''
-                }`}
+                } ${isCrownedCell ? 'slot-cell-crowned' : ''}`}
                 style={{ gridColumn: reel + 1, gridRow: row + 1 }}
               >
                 <span className={isSpinningCell ? 'reel-spinning' : 'reel-symbol'}>{symbol}</span>

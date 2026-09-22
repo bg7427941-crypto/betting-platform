@@ -728,6 +728,67 @@ button {
   }
 }
 
+/* "Corona Ascendente" — fila de coronas sobre el grid, una por carril,
+   como el marcador de un meter de colección: apaga/opaca hasta que ese
+   carril se corona, y ahí se queda dorada por el resto del bono. */
+.slot-crown-row {
+  display: grid;
+  grid-template-columns: repeat(5, 64px);
+  gap: 6px;
+  margin: 0 auto 6px;
+}
+
+.slot-crown-icon {
+  text-align: center;
+  font-size: 15px;
+  opacity: 0.3;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
+}
+
+.slot-crown-icon.crowned {
+  opacity: 1;
+  filter: none;
+  text-shadow: 0 0 8px rgba(201, 162, 39, 0.75);
+}
+
+.slot-crown-icon.just-crowned {
+  animation: slot-crown-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slot-crown-pop {
+  0% {
+    transform: scale(0.6) translateY(4px);
+    opacity: 0.3;
+  }
+  55% {
+    transform: scale(1.35) translateY(-3px);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Marco dorado persistente en las celdas de un carril ya coronado — más
+   quieto que slot-cell-hit (no pulsa), para que se lea como "estado fijo"
+   y no compita visualmente con las líneas ganadoras puntuales de ese giro. */
+.slot-cell-crowned {
+  border-color: var(--gold-dim);
+  box-shadow: inset 0 0 0 1px var(--gold-dim), 0 0 10px rgba(201, 162, 39, 0.3);
+  background: linear-gradient(180deg, rgba(201, 162, 39, 0.1), transparent 60%), var(--felt-3);
+}
+
+.slot-crown-flash {
+  text-align: center;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 14px;
+  padding: 6px 0;
+  margin-bottom: 8px;
+  animation: slot-retrigger-pop 0.35s ease-out;
+}
+
 .slot-controls {
   display: flex;
   align-items: center;
@@ -1149,6 +1210,13 @@ button {
   font-size: 14px;
 }
 
+.slot-bonus-intro-subdetail {
+  position: relative;
+  z-index: 2;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
 .slot-bonus-intro-start {
   position: relative;
   z-index: 2;
@@ -1183,8 +1251,58 @@ button {
   color: var(--gold);
 }
 
+.slot-bonus-outro-summary {
+  font-size: 12px;
+}
+
 .slot-bonus-outro-continue {
   margin-top: 14px;
+}
+
+/* Momento culminante y raro: los 5 carriles quedaron comodín. Overlay
+   propio (no reutiliza slot-bigwin-overlay) porque puede coincidir con un
+   giro que además es premio grande, y cada uno anima algo distinto. */
+.slot-corona-total-overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: radial-gradient(circle at 50% 45%, rgba(201, 162, 39, 0.28), rgba(15, 45, 34, 0.94) 72%);
+  text-align: center;
+  z-index: 3;
+  animation: slot-bigwin-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.slot-corona-total-crowns {
+  font-size: 22px;
+  letter-spacing: 0.15em;
+  animation: slot-bonus-ring-pulse 1s ease-in-out infinite;
+}
+
+.slot-corona-total-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  animation: slot-bonus-title-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.slot-corona-total-detail {
+  color: var(--parchment);
+  font-size: 12px;
+  max-width: 260px;
+}
+
+.slot-maxwin-overlay {
+  background: radial-gradient(circle at 50% 45%, rgba(168, 64, 47, 0.22), rgba(15, 45, 34, 0.94) 72%);
+}
+
+.slot-maxwin-overlay .slot-corona-total-title {
+  color: var(--brick);
 }
 
 @keyframes result-reveal {
