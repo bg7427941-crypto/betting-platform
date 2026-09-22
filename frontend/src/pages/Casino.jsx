@@ -752,11 +752,26 @@ function Slots({ onRoundSettled }) {
       </div>
 
       <button className="slot-paytable-toggle" onClick={() => setShowPaytable((v) => !v)}>
-        {showPaytable ? 'Ocultar tabla de pagos' : 'Ver tabla de pagos'}
+        {showPaytable ? 'Ocultar ayuda' : '¿Cómo funciona el bono?'}
       </button>
 
       {showPaytable && (
         <div className="slot-paytable">
+          <div className="slot-howto">
+            <div className="slot-howto-title text-gold">👑 Corona Ascendente</div>
+            <ol className="slot-howto-steps">
+              <li>3, 4 o 5 símbolos 💰 en un giro activan el bono: más scatters = más giros gratis y un multiplicador inicial más alto.</li>
+              <li>
+                Durante el bono, cuando un carril acumula <strong>2 scatters</strong> (no hace falta que sea en el
+                mismo giro) se <strong>corona</strong>: su fila del medio queda comodín fijo por el resto del bono.
+              </li>
+              <li>El multiplicador solo sube — con cada carril coronado y con cada giro que gana algo. Nunca baja.</li>
+              <li>3+ scatters en un giro del bono dan 5 giros extra (re-disparo) y también cuentan para coronar carriles.</li>
+              <li>Coronar los 5 carriles es <strong>Corona Total</strong>: un empujón extra de multiplicador. El bono corta al llegar a 5000× la apuesta.</li>
+            </ol>
+          </div>
+
+          <div className="slot-paytable-title text-sage">Tabla de pagos</div>
           {SLOT_PAYTABLE.map((row) => (
             <div className="slot-paytable-row" key={row.symbol}>
               <span className="slot-paytable-symbol">{row.symbol}</span>

@@ -1018,6 +1018,44 @@ button {
   padding-top: 10px;
 }
 
+.slot-howto {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.slot-howto-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.slot-howto-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot-howto-steps li {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--parchment);
+}
+
+.slot-howto-steps strong {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.slot-paytable-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
 .slot-paytable-row {
   display: flex;
   align-items: center;
