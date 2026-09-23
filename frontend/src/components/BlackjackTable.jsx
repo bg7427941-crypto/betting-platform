@@ -185,7 +185,7 @@ export default function BlackjackTable({ onRoundSettled }) {
               )}
             </div>
 
-            <Hand title="Vos" icon="👤" cards={round.playerCards} value={round.playerValue} live={inHand} />
+            <Hand title="Tú" icon="👤" cards={round.playerCards} value={round.playerValue} live={inHand} />
 
             {inHand && (
               <div className="bj-actions">
