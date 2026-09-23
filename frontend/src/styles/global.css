@@ -1659,29 +1659,117 @@ button {
 /* ---------- mesa de blackjack ---------- */
 
 .bj-table {
-  max-width: 520px;
+  max-width: 560px;
+}
+
+/* Tapete: fieltro con viñeta radial + doble borde dorado, como una mesa real */
+.bj-felt {
+  position: relative;
+  padding: 28px 22px 22px;
+  border-radius: 18px;
+  border: 1px solid var(--gold-dim);
+  outline: 1px solid rgba(201, 162, 39, 0.25);
+  outline-offset: 4px;
+  background: radial-gradient(120% 140% at 50% -10%, var(--felt-3) 0%, var(--felt) 62%, var(--felt) 100%);
+  overflow: hidden;
+}
+
+.bj-felt::before,
+.bj-felt::after {
+  content: '♠';
+  position: absolute;
+  font-size: 64px;
+  color: var(--line);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.bj-felt::before {
+  top: -6px;
+  left: 8px;
+}
+
+.bj-felt::after {
+  content: '♦';
+  bottom: -14px;
+  right: 8px;
+}
+
+.bj-felt-legend {
+  text-align: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  color: var(--gold-dim);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.bj-bet-panel {
+  position: relative;
+}
+
+.bj-stake-amount {
+  font-size: 18px;
 }
 
 .bj-board {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .bj-hand-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-display);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.bj-hand-icon {
+  font-size: 15px;
+  filter: grayscale(0.2);
+}
+
+.bj-hand-value {
+  margin-left: auto;
+}
+
+.bj-turn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: slot-autoplay-dot-pulse 1.1s ease-in-out infinite;
+}
+
+.bj-divider {
+  display: flex;
+  justify-content: center;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  padding: 6px 0;
+  min-height: 14px;
+}
+
+.bj-shoe {
+  font-size: 11px;
+  color: var(--sage);
 }
 
 .bj-cards {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  perspective: 600px;
 }
 
 .bj-card {
-  width: 52px;
-  height: 74px;
+  width: 56px;
+  height: 78px;
   border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--parchment);
@@ -1689,30 +1777,79 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 4px 0;
   font-family: var(--font-mono);
   font-weight: 600;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  opacity: 0;
 }
 
 .bj-card-rank {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.bj-card-suit {
   font-size: 16px;
   line-height: 1;
 }
 
+.bj-card-rank-mirror {
+  transform: rotate(180deg);
+}
+
+.bj-card-suit {
+  font-size: 18px;
+  line-height: 1;
+}
+
 .bj-card-back {
-  background: var(--felt-3);
-  color: var(--gold-dim);
-  font-size: 26px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--felt-3),
+    var(--felt-3) 4px,
+    var(--felt-2) 4px,
+    var(--felt-2) 8px
+  );
+  border: 1px solid var(--gold-dim);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.bj-card-deal {
+  animation: bj-deal 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes bj-deal {
+  from {
+    opacity: 0;
+    transform: translate(-16px, -34px) rotate(-10deg) scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+.bj-card-flip {
+  animation: bj-flip 0.4s ease-out both;
+}
+
+@keyframes bj-flip {
+  0% {
+    opacity: 1;
+    transform: rotateY(90deg) scale(0.96);
+    filter: brightness(1.7);
+  }
+  60% {
+    transform: rotateY(0deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) scale(1);
+    filter: brightness(1);
+  }
 }
 
 .bj-actions {
   display: flex;
   gap: 10px;
+  animation: bj-deal 0.25s ease-out both;
 }
 
 .bj-result {
@@ -1720,4 +1857,8 @@ button {
   flex-direction: column;
   gap: 10px;
   align-items: flex-start;
+}
+
+.bj-result-banner {
+  animation: result-reveal 0.4s ease-out both;
 }

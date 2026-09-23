@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 
@@ -14,34 +14,40 @@ const OUTCOME_LABEL = {
   bust: 'Te pasaste de 21',
 };
 
-function Card({ card }) {
+function Card({ card, delay = 0, flip = false }) {
   if (card.hidden) {
-    return <div className="bj-card bj-card-back">🂠</div>;
+    return <div className="bj-card bj-card-back" style={{ animationDelay: `${delay}s` }} />;
   }
   return (
-    <div className={`bj-card ${SUIT_COLOR[card.suit] || ''}`}>
+    <div
+      className={`bj-card ${SUIT_COLOR[card.suit] || ''} ${flip ? 'bj-card-flip' : 'bj-card-deal'}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
       <span className="bj-card-rank">{card.rank}</span>
       <span className="bj-card-suit">{card.suit}</span>
+      <span className="bj-card-rank bj-card-rank-mirror">{card.rank}</span>
     </div>
   );
 }
 
-function Hand({ title, cards, value, hideValue }) {
+function Hand({ title, icon, cards, value, hideValue, live, flipIndex }) {
   return (
     <div className="bj-hand">
       <div className="bj-hand-title">
+        <span className="bj-hand-icon">{icon}</span>
         {title}
+        {live && <span className="bj-turn-dot" title="Tu turno" />}
         {!hideValue && value && (
-          <span className="mono text-gold">
-            {' '}
-            — {value.value}
+          <span className="mono text-gold bj-hand-value">
+            {value.value}
             {value.soft && value.value <= 21 ? ' (suave)' : ''}
+            {value.value > 21 ? ' — se pasó' : ''}
           </span>
         )}
       </div>
       <div className="bj-cards">
         {cards.map((c, i) => (
-          <Card key={i} card={c} />
+          <Card key={i} card={c} delay={i * 0.14} flip={i === flipIndex} />
         ))}
       </div>
     </div>
@@ -54,9 +60,14 @@ export default function BlackjackTable({ onRoundSettled }) {
   const [selectedChip, setSelectedChip] = useState(5);
   const [round, setRound] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState(null);
   const [error, setError] = useState('');
 
-  // Al entrar, si había una mano en curso (ej. refrescaste la página), la recupera.
+  // Para animar el flip de la carta tapada del dealer sólo cuando la mano
+  // se resuelve en vivo (no cuando se recupera ya terminada al montar).
+  const prevStatusRef = useRef(null);
+  const [dealerRevealNonce, setDealerRevealNonce] = useState(0);
+
   useEffect(() => {
     api
       .getBlackjackState()
@@ -65,6 +76,13 @@ export default function BlackjackTable({ onRoundSettled }) {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (round && prevStatusRef.current === 'player_turn' && round.status === 'finished') {
+      setDealerRevealNonce((n) => n + 1);
+    }
+    prevStatusRef.current = round ? round.status : null;
+  }, [round]);
 
   const inHand = round && round.status === 'player_turn';
   const finished = round && round.status === 'finished';
@@ -79,7 +97,7 @@ export default function BlackjackTable({ onRoundSettled }) {
     setError('');
     setLoading(true);
     try {
-      const { round: newRound, balance_cents } = await api.startBlackjack(stakeCents);
+      const { round: newRound } = await api.startBlackjack(stakeCents);
       setRound(newRound);
       refresh();
       if (newRound.status === 'finished') {
@@ -96,6 +114,7 @@ export default function BlackjackTable({ onRoundSettled }) {
     if (!round) return;
     setError('');
     setLoading(true);
+    setLoadingAction(action);
     try {
       const fn = action === 'hit' ? api.hitBlackjack : action === 'stand' ? api.standBlackjack : api.doubleBlackjack;
       const { round: updated } = await fn(round.id);
@@ -108,6 +127,7 @@ export default function BlackjackTable({ onRoundSettled }) {
       setError(err.message);
     } finally {
       setLoading(false);
+      setLoadingAction(null);
     }
   }
 
@@ -116,77 +136,91 @@ export default function BlackjackTable({ onRoundSettled }) {
     setError('');
   }
 
+  const dealerFlipIndex = finished && dealerRevealNonce > 0 ? 1 : -1;
+
   return (
     <div className="bj-table">
-      {!round && (
-        <>
-          <p className="page-sub">Blackjack clásico — dealer planta en 17, blackjack paga 3:2.</p>
-          <div className="chip-tray">
-            {CHIPS.map((c) => (
-              <button
-                key={c}
-                className={`chip-select ${selectedChip === c ? 'selected' : ''}`}
-                onClick={() => addChip(c)}
-              >
-                S/{c}
+      <div className="bj-felt">
+        <div className="bj-felt-legend">BLACKJACK PAGA 3 A 2 · EL DEALER PLANTA EN 17 · 6 MAZOS</div>
+
+        {!round && (
+          <div className="bj-bet-panel">
+            <div className="chip-tray">
+              {CHIPS.map((c) => (
+                <button
+                  key={c}
+                  className={`chip-select ${selectedChip === c ? 'selected' : ''}`}
+                  onClick={() => addChip(c)}
+                >
+                  S/{c}
+                </button>
+              ))}
+              <button className="btn-ghost" onClick={() => setStakeCents(0)}>
+                Limpiar
               </button>
-            ))}
-            <button className="btn-ghost" onClick={() => setStakeCents(0)}>
-              Limpiar
+            </div>
+            <p>
+              Apuesta: <span className="mono text-gold bj-stake-amount">{formatCents(stakeCents)}</span>
+            </p>
+            <button className="btn" disabled={stakeCents <= 0 || loading} onClick={start}>
+              {loading ? 'Repartiendo…' : 'Repartir'}
             </button>
           </div>
-          <p>
-            Apuesta: <span className="mono text-gold">{formatCents(stakeCents)}</span>
-          </p>
-          <button className="btn" disabled={stakeCents <= 0 || loading} onClick={start}>
-            Repartir
-          </button>
-        </>
-      )}
+        )}
 
-      {round && (
-        <div className="bj-board">
-          <Hand
-            title="Dealer"
-            cards={round.dealerCards}
-            value={round.dealerValue}
-            hideValue={round.status === 'player_turn'}
-          />
-          <Hand title="Vos" cards={round.playerCards} value={round.playerValue} />
+        {round && (
+          <div className="bj-board">
+            <Hand
+              title="Dealer"
+              icon="🎩"
+              cards={round.dealerCards}
+              value={round.dealerValue}
+              hideValue={round.status === 'player_turn'}
+              flipIndex={dealerFlipIndex}
+            />
 
-          {inHand && (
-            <div className="bj-actions">
-              <button className="btn" disabled={loading} onClick={() => act('hit')}>
-                Pedir
-              </button>
-              <button className="btn" disabled={loading} onClick={() => act('stand')}>
-                Plantarme
-              </button>
-              {round.canDouble && (
-                <button
-                  className="btn-ghost"
-                  disabled={loading || (balanceCents ?? 0) < round.stakeCents}
-                  onClick={() => act('double')}
-                >
-                  Doblar
-                </button>
+            <div className="bj-divider">
+              {round.deckRemaining != null && (
+                <span className="bj-shoe mono">🂠 {round.deckRemaining} cartas en el zapato</span>
               )}
             </div>
-          )}
 
-          {finished && (
-            <div className="bj-result">
-              <p className={round.payoutCents > 0 ? 'text-gold' : 'text-brick'}>
-                {OUTCOME_LABEL[round.resultOutcome] || round.resultOutcome}
-                {round.payoutCents > 0 ? ` — cobrás ${formatCents(round.payoutCents)}` : ''}
-              </p>
-              <button className="btn" onClick={playAgain}>
-                Jugar de nuevo
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            <Hand title="Vos" icon="👤" cards={round.playerCards} value={round.playerValue} live={inHand} />
+
+            {inHand && (
+              <div className="bj-actions">
+                <button className="btn" disabled={loading} onClick={() => act('hit')}>
+                  {loadingAction === 'hit' ? 'Pidiendo…' : 'Pedir'}
+                </button>
+                <button className="btn" disabled={loading} onClick={() => act('stand')}>
+                  {loadingAction === 'stand' ? 'Plantando…' : 'Plantarme'}
+                </button>
+                {round.canDouble && (
+                  <button
+                    className="btn-ghost"
+                    disabled={loading || (balanceCents ?? 0) < round.stakeCents}
+                    onClick={() => act('double')}
+                  >
+                    {loadingAction === 'double' ? 'Doblando…' : 'Doblar'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {finished && (
+              <div className="bj-result">
+                <p className={`bj-result-banner ${round.payoutCents > 0 ? 'text-gold' : 'text-brick'}`}>
+                  {OUTCOME_LABEL[round.resultOutcome] || round.resultOutcome}
+                  {round.payoutCents > 0 ? ` — cobrás ${formatCents(round.payoutCents)}` : ''}
+                </p>
+                <button className="btn" onClick={playAgain}>
+                  Jugar de nuevo
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {error && <p className="text-brick">{error}</p>}
     </div>

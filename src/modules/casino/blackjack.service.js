@@ -19,6 +19,7 @@ function toPublicRound(round) {
     resultOutcome: o.resultOutcome || null,
     payoutCents: round.payout_cents,
     createdAt: round.created_at,
+    deckRemaining: o.status === 'player_turn' ? o.deck.length : null,
   };
 }
 
