@@ -3,6 +3,7 @@ const { requireAuth } = require('../../middleware/auth');
 const { casinoPlayLimiter } = require('../../middleware/rateLimit');
 const { query } = require('../../db');
 const casinoService = require('./casino.service');
+const blackjackService = require('./blackjack.service');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -28,6 +29,54 @@ router.post('/play', casinoPlayLimiter, async (req, res) => {
 
 router.get('/slots/config', (req, res) => {
   res.json(casinoService.getSlotsConfig());
+});
+
+// --- Blackjack: a diferencia de ruleta/slots, una mano se juega en varios
+// requests (start -> hit* -> stand|double), así que vive en su propio
+// sub-router en vez de forzarla dentro de POST /play.
+router.post('/blackjack/start', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.startBlackjack(req.userId, { stakeCents: req.body.stake_cents });
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.get('/blackjack/state', async (req, res) => {
+  try {
+    const round = await blackjackService.getBlackjackState(req.userId);
+    res.json({ round });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/blackjack/:roundId/hit', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.hitBlackjack(req.userId, req.params.roundId);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/blackjack/:roundId/stand', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.standBlackjack(req.userId, req.params.roundId);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/blackjack/:roundId/double', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.doubleBlackjack(req.userId, req.params.roundId);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
 });
 
 router.get('/history', async (req, res) => {

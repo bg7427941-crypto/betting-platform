@@ -191,4 +191,4 @@ function getSlotsConfig() {
   return { anteTiers: ANTE_TIERS, buyBonusCostMultiplier: BUY_BONUS_COST_MULTIPLIER };
 }
 
-module.exports = { playRound, getSlotsConfig };
+module.exports = { playRound, getSlotsConfig, MAX_STAKE_CENTS };

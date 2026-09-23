@@ -44,6 +44,12 @@ export const api = {
   getSlotsConfig: () => request('/api/casino/slots/config'),
   casinoHistory: () => request('/api/casino/history'),
 
+  startBlackjack: (stakeCents) => request('/api/casino/blackjack/start', { method: 'POST', body: { stake_cents: stakeCents } }),
+  getBlackjackState: () => request('/api/casino/blackjack/state'),
+  hitBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/hit`, { method: 'POST' }),
+  standBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/stand`, { method: 'POST' }),
+  doubleBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/double`, { method: 'POST' }),
+
   adminSummary: () => request('/api/admin/summary'),
   adminListEvents: () => request('/api/sports/admin/events'),
   adminCreateEvent: (payload) => request('/api/sports/admin/events', { method: 'POST', body: payload }),

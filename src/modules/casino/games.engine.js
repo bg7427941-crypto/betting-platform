@@ -381,6 +381,94 @@ function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
   };
 }
 
+// =========================================================
+// BLACKJACK (mesa clásica, 6 mazos, dealer planta en 17 —
+// incluido "17 suave", regla S17. Sin split; doblar solo con 2 cartas).
+// =========================================================
+
+const BJ_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const BJ_SUITS = ['♠', '♥', '♦', '♣'];
+const BJ_DECK_COUNT = 6; // zapato de 6 mazos, estándar de mesa
+
+/** Crea un zapato de N mazos ya barajado (Fisher-Yates con crypto.randomInt). */
+function createShoe(deckCount = BJ_DECK_COUNT) {
+  const shoe = [];
+  for (let d = 0; d < deckCount; d += 1) {
+    for (const suit of BJ_SUITS) {
+      for (const rank of BJ_RANKS) shoe.push({ rank, suit });
+    }
+  }
+  for (let i = shoe.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1);
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+  return shoe;
+}
+
+/** Saca una carta del tope del mazo (muta el array, como una mesa real). */
+function drawCard(shoe) {
+  if (shoe.length === 0) throw Object.assign(new Error('El zapato se quedó sin cartas'), { status: 500 });
+  return shoe.pop();
+}
+
+function rankValue(rank) {
+  if (rank === 'A') return 11; // se ajusta en handValue() si hace falta
+  if (rank === 'J' || rank === 'Q' || rank === 'K') return 10;
+  return Number(rank);
+}
+
+/**
+ * Mejor valor de una mano <=21 tratando los ases como 11 u 1 según convenga.
+ * Devuelve { value, soft } — soft=true si hay al menos un as contando como 11.
+ */
+function handValue(cards) {
+  let total = cards.reduce((sum, c) => sum + rankValue(c.rank), 0);
+  let aces = cards.filter((c) => c.rank === 'A').length;
+  while (total > 21 && aces > 0) {
+    total -= 10; // un as pasa de valer 11 a valer 1
+    aces -= 1;
+  }
+  const soft = aces > 0; // queda al menos un as contando como 11
+  return { value: total, soft };
+}
+
+function isBlackjack(cards) {
+  return cards.length === 2 && handValue(cards).value === 21;
+}
+
+/** El dealer pide hasta 17 (planta en cualquier 17, incluido "suave"). */
+function playDealer(shoe, dealerCards) {
+  const cards = [...dealerCards];
+  while (handValue(cards).value < 17) {
+    cards.push(drawCard(shoe));
+  }
+  return cards;
+}
+
+/**
+ * Compara mano de jugador ya cerrada (stand/bust/blackjack) contra el dealer
+ * y devuelve el resultado + el multiplicador sobre la apuesta EFECTIVA
+ * (ya duplicada si hubo double down).
+ * outcome: 'player_blackjack' | 'win' | 'push' | 'loss' | 'bust'
+ */
+function settleBlackjackHand(playerCards, dealerCardsFinal) {
+  const player = handValue(playerCards);
+  if (player.value > 21) return { outcome: 'bust', multiplier: 0 };
+
+  const playerBJ = isBlackjack(playerCards);
+  const dealerBJ = isBlackjack(dealerCardsFinal);
+
+  if (playerBJ && dealerBJ) return { outcome: 'push', multiplier: 1 };
+  if (playerBJ) return { outcome: 'player_blackjack', multiplier: 2.5 }; // paga 3:2 + devuelve apuesta
+  if (dealerBJ) return { outcome: 'loss', multiplier: 0 };
+
+  const dealer = handValue(dealerCardsFinal);
+  if (dealer.value > 21) return { outcome: 'win', multiplier: 2 };
+  if (player.value > dealer.value) return { outcome: 'win', multiplier: 2 };
+  if (player.value < dealer.value) return { outcome: 'loss', multiplier: 0 };
+  return { outcome: 'push', multiplier: 1 };
+}
+
 module.exports = {
   spinRouletteWheel,
   resolveRouletteBet,
@@ -394,4 +482,10 @@ module.exports = {
   SLOT_SYMBOLS,
   SLOT_WILD: WILD,
   SLOT_SCATTER: SCATTER,
+  createShoe,
+  drawCard,
+  handValue,
+  isBlackjack,
+  playDealer,
+  settleBlackjackHand,
 };

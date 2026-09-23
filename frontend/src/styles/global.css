@@ -1655,3 +1655,69 @@ button {
 .team-row {
   align-items: center;
 }
+
+/* ---------- mesa de blackjack ---------- */
+
+.bj-table {
+  max-width: 520px;
+}
+
+.bj-board {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bj-hand-title {
+  font-family: var(--font-display);
+  margin-bottom: 8px;
+}
+
+.bj-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bj-card {
+  width: 52px;
+  height: 74px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--parchment);
+  color: var(--felt);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.bj-card-rank {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.bj-card-suit {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.bj-card-back {
+  background: var(--felt-3);
+  color: var(--gold-dim);
+  font-size: 26px;
+}
+
+.bj-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.bj-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}

@@ -64,6 +64,17 @@ npm run dev        # levanta el servidor en modo desarrollo
     RTP calibrado por simulación en ~94% (ver
     `src/modules/casino/games.engine.js`).
 - `GET  /api/casino/history` — historial de rondas jugadas
+- Blackjack — a diferencia de ruleta/slots, una mano se juega en varios
+  requests, así que tiene su propio sub-router en vez de `POST /play`
+  (6 mazos, dealer planta en 17, blackjack paga 3:2, sin split):
+  - `POST /api/casino/blackjack/start` — `{ stake_cents }`, reparte y
+    resuelve al toque si hay blackjack natural (jugador o dealer)
+  - `GET  /api/casino/blackjack/state` — mano en curso, si la hay (para
+    recuperar el estado tras un refresh)
+  - `POST /api/casino/blackjack/:roundId/hit` — pide una carta
+  - `POST /api/casino/blackjack/:roundId/stand` — se planta; el dealer juega
+  - `POST /api/casino/blackjack/:roundId/double` — dobla (solo con la mano
+    inicial de 2 cartas); pide una carta y planta automáticamente
 
 ## Cálculo automático de cuotas
 
@@ -113,7 +124,8 @@ sesión y volver a entrar para que el nuevo token incluya el rol.
 Está en `/frontend`. Consume la API del backend, con las páginas:
 - **Login / Registro** — con validación de mayoría de edad.
 - **Deportes** — lista de eventos, cuotas expandibles, boleta de apuesta.
-- **Casino** — ruleta (rojo/negro, par/impar, alto/bajo) y tragamonedas.
+- **Casino** — ruleta (rojo/negro, par/impar, alto/bajo), tragamonedas y
+  blackjack (pedir/plantarse/doblar, blackjack paga 3:2).
 - **Billetera** — saldo, depósito/retiro simulado, historial.
 - **Admin** (solo visible/accesible con rol `admin`) — dashboard con
   métricas (usuarios, saldo en circulación, apuestas pendientes, resultado

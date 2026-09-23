@@ -4,6 +4,7 @@ import { useWallet, formatCents } from '../context/WalletContext';
 import { RouletteWheel } from '../components/RouletteWheel';
 import { BettingTable } from '../components/BettingTable';
 import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
+import BlackjackTable from '../components/BlackjackTable';
 
 function formatElapsed(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -64,15 +65,24 @@ export default function Casino() {
         <button className={tab === 'slots' ? 'btn' : 'btn-ghost'} onClick={() => setTab('slots')}>
           Tragamonedas
         </button>
+        <button className={tab === 'blackjack' ? 'btn' : 'btn-ghost'} onClick={() => setTab('blackjack')}>
+          Blackjack
+        </button>
       </div>
 
-      {tab === 'roulette' ? (
+      {tab === 'roulette' && (
         <div key="roulette" className="casino-tab-panel">
           <Roulette onRoundSettled={handleRoundSettled} />
         </div>
-      ) : (
+      )}
+      {tab === 'slots' && (
         <div key="slots" className="casino-tab-panel">
           <Slots onRoundSettled={handleRoundSettled} />
+        </div>
+      )}
+      {tab === 'blackjack' && (
+        <div key="blackjack" className="casino-tab-panel">
+          <BlackjackTable onRoundSettled={handleRoundSettled} />
         </div>
       )}
     </div>
