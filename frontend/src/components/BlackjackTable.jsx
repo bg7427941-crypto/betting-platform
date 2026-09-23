@@ -179,13 +179,9 @@ export default function BlackjackTable({ onRoundSettled }) {
               flipIndex={dealerFlipIndex}
             />
 
-            <div className="bj-divider">
-              {round.deckRemaining != null && (
-                <span className="bj-shoe mono">🂠 {round.deckRemaining} cartas en el zapato</span>
-              )}
-            </div>
+            <div className="bj-divider" />
 
-            <Hand title="Tú" icon="👤" cards={round.playerCards} value={round.playerValue} live={inHand} />
+            <Hand title="Vos" icon="👤" cards={round.playerCards} value={round.playerValue} live={inHand} />
 
             {inHand && (
               <div className="bj-actions">

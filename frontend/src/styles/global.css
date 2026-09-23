@@ -1755,11 +1755,6 @@ button {
   min-height: 14px;
 }
 
-.bj-shoe {
-  font-size: 11px;
-  color: var(--sage);
-}
-
 .bj-cards {
   display: flex;
   gap: 10px;
