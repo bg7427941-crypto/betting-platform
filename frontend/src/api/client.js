@@ -34,6 +34,8 @@ export const api = {
   deposit: (amountCents) => request('/api/wallet/deposit', { method: 'POST', body: { amount_cents: amountCents } }),
   withdraw: (amountCents) => request('/api/wallet/withdraw', { method: 'POST', body: { amount_cents: amountCents } }),
   walletHistory: () => request('/api/wallet/history'),
+  setDepositLimit: (amountCents) =>
+    request('/api/wallet/deposit-limit', { method: 'PUT', body: { amount_cents: amountCents } }),
 
   listEvents: () => request('/api/sports/events'),
   getEvent: (id) => request(`/api/sports/events/${id}`),
