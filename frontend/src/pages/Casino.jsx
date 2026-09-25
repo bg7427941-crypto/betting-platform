@@ -56,7 +56,7 @@ export default function Casino() {
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      <div className="casino-tabs">
         <button
           className={tab === 'roulette' ? 'btn' : 'btn-ghost'}
           onClick={() => setTab('roulette')}

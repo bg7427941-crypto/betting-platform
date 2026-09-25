@@ -223,7 +223,12 @@ export default function BlackjackTable({ onRoundSettled }) {
       <div className="bj-felt">
         <div className="bj-felt-legend">
           BLACKJACK PAGA 3 A 2 · EL DEALER PLANTA EN 17 · 6 MAZOS
-          <button className="bj-mute" onClick={toggleMute} title={muted ? 'Activar sonido' : 'Silenciar'}>
+          <button
+            className="bj-mute"
+            onClick={toggleMute}
+            aria-label={muted ? 'Activar sonido' : 'Silenciar'}
+            title={muted ? 'Activar sonido' : 'Silenciar'}
+          >
             {muted ? '🔇' : '🔊'}
           </button>
         </div>

@@ -607,6 +607,12 @@ button {
   }
 }
 
+.casino-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
 .casino-tab-panel {
   animation: casino-tab-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -2055,4 +2061,203 @@ button {
 
 .bj-card-sm .bj-card-suit {
   font-size: 12px;
+}
+
+/* =========================================================
+   TEMA CLARO — mismos tokens, otra paleta. Se activa por preferencia
+   del sistema (prefers-color-scheme) o por el toggle manual en el
+   sidebar, que setea data-theme y gana siempre sobre la preferencia
+   del sistema.
+   ========================================================= */
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --felt: #f4efe0;
+    --felt-2: #e9e1c8;
+    --felt-3: #ece4cc;
+    --line: #cabf9c;
+    --gold: #96700f;
+    --gold-dim: #b3903f;
+    --brick: #8c3324;
+    --parchment: #1c2a22;
+    --sage: #55675c;
+  }
+}
+
+:root[data-theme='light'] {
+  --felt: #f4efe0;
+  --felt-2: #e9e1c8;
+  --felt-3: #ece4cc;
+  --line: #cabf9c;
+  --gold: #96700f;
+  --gold-dim: #b3903f;
+  --brick: #8c3324;
+  --parchment: #1c2a22;
+  --sage: #55675c;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--parchment);
+}
+
+.theme-toggle:hover {
+  border-color: var(--gold);
+}
+
+/* ---------- accesibilidad ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* las animaciones con fill:both parten en opacity:0 / rotadas — al
+     cortar la duración hay que fijar el estado final a mano para que no
+     queden invisibles o giradas */
+  .bj-card-deal,
+  .bj-card-flip,
+  .bj-actions,
+  .bj-result-banner,
+  .bj-hand-result,
+  .bj-streak,
+  .bj-insurance {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 760px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .brand-row {
+    width: auto;
+  }
+
+  .nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+    order: 3;
+    width: 100%;
+  }
+
+  .nav a {
+    padding: 7px 9px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+
+  .nav a.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--gold);
+  }
+
+  .sidebar-wallet {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+    order: 2;
+    margin-left: auto;
+  }
+
+  .sidebar-wallet .label {
+    display: none;
+  }
+
+  .sidebar-wallet .btn-ghost {
+    display: none;
+  }
+
+  .main {
+    padding: 20px 16px 40px;
+    max-width: 100%;
+  }
+
+  .casino-tabs {
+    flex-wrap: wrap;
+  }
+
+  .bj-felt {
+    padding: 20px 12px 16px;
+  }
+
+  .bj-card {
+    width: 44px;
+    height: 62px;
+  }
+
+  .bj-card-rank {
+    font-size: 13px;
+  }
+
+  .bj-card-suit {
+    font-size: 14px;
+  }
+
+  .bj-actions {
+    flex-wrap: wrap;
+  }
+
+  .live-seats {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .live-table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .bj-card {
+    width: 38px;
+    height: 54px;
+  }
+
+  .chip-select {
+    width: 38px;
+    height: 38px;
+    font-size: 11px;
+  }
 }
