@@ -1857,3 +1857,202 @@ button {
 .bj-result-banner {
   animation: result-reveal 0.4s ease-out both;
 }
+
+.bj-felt-legend {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bj-mute {
+  position: absolute;
+  right: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.bj-mute:hover {
+  opacity: 1;
+}
+
+.bj-streak {
+  text-align: center;
+  font-size: 12px;
+  margin-bottom: 14px;
+  animation: result-reveal 0.3s ease-out both;
+}
+
+.bj-shuffle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px 0;
+}
+
+.bj-shuffle-cards {
+  display: flex;
+}
+
+.bj-shuffle-card {
+  margin-left: -22px;
+  animation: bj-shuffle-riffle 0.55s ease-in-out infinite;
+}
+
+.bj-shuffle-card:first-child {
+  margin-left: 0;
+}
+
+@keyframes bj-shuffle-riffle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-6deg);
+  }
+}
+
+.bj-shuffle-label {
+  font-size: 11px;
+  color: var(--gold-dim);
+  letter-spacing: 0.06em;
+}
+
+.bj-hands {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bj-hand-active {
+  border-left: 2px solid var(--gold);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+
+.bj-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sage);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.bj-hand-result {
+  margin-top: 6px;
+  font-size: 12px;
+  animation: result-reveal 0.3s ease-out both;
+}
+
+.bj-insurance {
+  border: 1px dashed var(--gold-dim);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: result-reveal 0.3s ease-out both;
+}
+
+/* ---------- mesa de blackjack en vivo ---------- */
+
+.live-lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.live-table-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.live-table-card {
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--felt-2);
+}
+
+.live-table-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.live-table-view {
+  max-width: 720px;
+}
+
+.live-table-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.live-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.live-seat {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-seat-empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--sage);
+  border-style: dashed;
+}
+
+.live-seat-active {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.live-seat-you {
+  background: rgba(201, 162, 39, 0.07);
+}
+
+.live-seat-disconnected {
+  opacity: 0.55;
+}
+
+.live-seat-value {
+  font-size: 12px;
+}
+
+.bj-card-sm {
+  width: 34px;
+  height: 48px;
+}
+
+.bj-card-sm .bj-card-rank {
+  font-size: 11px;
+}
+
+.bj-card-sm .bj-card-suit {
+  font-size: 12px;
+}

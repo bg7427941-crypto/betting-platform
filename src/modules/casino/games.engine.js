@@ -383,7 +383,9 @@ function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
 
 // =========================================================
 // BLACKJACK (mesa clásica, 6 mazos, dealer planta en 17 —
-// incluido "17 suave", regla S17. Sin split; doblar solo con 2 cartas).
+// incluido "17 suave", regla S17. Un solo split por mano, doblar después de
+// split permitido salvo en ases divididos — que reciben una sola carta y se
+// plantan solo, como en cualquier mesa real).
 // =========================================================
 
 const BJ_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -436,6 +438,11 @@ function isBlackjack(cards) {
   return cards.length === 2 && handValue(cards).value === 21;
 }
 
+/** ¿Las dos cartas de una mano inicial se pueden dividir (mismo valor)? */
+function isSplittablePair(cards) {
+  return cards.length === 2 && rankValue(cards[0].rank) === rankValue(cards[1].rank);
+}
+
 /** El dealer pide hasta 17 (planta en cualquier 17, incluido "suave"). */
 function playDealer(shoe, dealerCards) {
   const cards = [...dealerCards];
@@ -446,16 +453,19 @@ function playDealer(shoe, dealerCards) {
 }
 
 /**
- * Compara mano de jugador ya cerrada (stand/bust/blackjack) contra el dealer
- * y devuelve el resultado + el multiplicador sobre la apuesta EFECTIVA
- * (ya duplicada si hubo double down).
+ * Compara una mano de jugador ya cerrada (stand/bust/blackjack) contra el
+ * dealer y devuelve el resultado + el multiplicador sobre la apuesta
+ * EFECTIVA de esa mano (ya duplicada si hubo double down).
+ * `isSplitHand`: una mano nacida de un split nunca cuenta como "blackjack
+ * natural" aunque llegue a 21 con 2 cartas — paga 1:1 como un 21 normal,
+ * regla estándar de mesa.
  * outcome: 'player_blackjack' | 'win' | 'push' | 'loss' | 'bust'
  */
-function settleBlackjackHand(playerCards, dealerCardsFinal) {
+function settleBlackjackHand(playerCards, dealerCardsFinal, isSplitHand = false) {
   const player = handValue(playerCards);
   if (player.value > 21) return { outcome: 'bust', multiplier: 0 };
 
-  const playerBJ = isBlackjack(playerCards);
+  const playerBJ = !isSplitHand && isBlackjack(playerCards);
   const dealerBJ = isBlackjack(dealerCardsFinal);
 
   if (playerBJ && dealerBJ) return { outcome: 'push', multiplier: 1 };
@@ -484,8 +494,10 @@ module.exports = {
   SLOT_SCATTER: SCATTER,
   createShoe,
   drawCard,
+  rankValue,
   handValue,
   isBlackjack,
+  isSplittablePair,
   playDealer,
   settleBlackjackHand,
 };

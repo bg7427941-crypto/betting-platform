@@ -34,8 +34,6 @@ export const api = {
   deposit: (amountCents) => request('/api/wallet/deposit', { method: 'POST', body: { amount_cents: amountCents } }),
   withdraw: (amountCents) => request('/api/wallet/withdraw', { method: 'POST', body: { amount_cents: amountCents } }),
   walletHistory: () => request('/api/wallet/history'),
-  setDepositLimit: (amountCents) =>
-    request('/api/wallet/deposit-limit', { method: 'PUT', body: { amount_cents: amountCents } }),
 
   listEvents: () => request('/api/sports/events'),
   getEvent: (id) => request(`/api/sports/events/${id}`),
@@ -51,6 +49,9 @@ export const api = {
   hitBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/hit`, { method: 'POST' }),
   standBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/stand`, { method: 'POST' }),
   doubleBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/double`, { method: 'POST' }),
+  splitBlackjack: (roundId) => request(`/api/casino/blackjack/${roundId}/split`, { method: 'POST' }),
+  insuranceBlackjack: (roundId, take) =>
+    request(`/api/casino/blackjack/${roundId}/insurance`, { method: 'POST', body: { take } }),
 
   adminSummary: () => request('/api/admin/summary'),
   adminListEvents: () => request('/api/sports/admin/events'),

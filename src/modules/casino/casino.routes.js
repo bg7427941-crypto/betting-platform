@@ -79,6 +79,24 @@ router.post('/blackjack/:roundId/double', casinoPlayLimiter, async (req, res) =>
   }
 });
 
+router.post('/blackjack/:roundId/split', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.splitBlackjack(req.userId, req.params.roundId);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/blackjack/:roundId/insurance', casinoPlayLimiter, async (req, res) => {
+  try {
+    const result = await blackjackService.insuranceBlackjack(req.userId, req.params.roundId, !!req.body.take);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 router.get('/history', async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 50;

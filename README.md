@@ -66,15 +66,47 @@ npm run dev        # levanta el servidor en modo desarrollo
 - `GET  /api/casino/history` — historial de rondas jugadas
 - Blackjack — a diferencia de ruleta/slots, una mano se juega en varios
   requests, así que tiene su propio sub-router en vez de `POST /play`
-  (6 mazos, dealer planta en 17, blackjack paga 3:2, sin split):
-  - `POST /api/casino/blackjack/start` — `{ stake_cents }`, reparte y
-    resuelve al toque si hay blackjack natural (jugador o dealer)
+  (6 mazos, dealer planta en 17, blackjack paga 3:2, split con doblar
+  permitido salvo en ases divididos, seguro 2:1 cuando el dealer muestra as):
+  - `POST /api/casino/blackjack/start` — `{ stake_cents }`, reparte;
+    si el dealer muestra as pasa a `insurance_decision`, si no resuelve al
+    toque un blackjack natural (jugador o dealer) o pasa a `player_turn`
   - `GET  /api/casino/blackjack/state` — mano en curso, si la hay (para
     recuperar el estado tras un refresh)
-  - `POST /api/casino/blackjack/:roundId/hit` — pide una carta
-  - `POST /api/casino/blackjack/:roundId/stand` — se planta; el dealer juega
-  - `POST /api/casino/blackjack/:roundId/double` — dobla (solo con la mano
-    inicial de 2 cartas); pide una carta y planta automáticamente
+  - `POST /api/casino/blackjack/:roundId/insurance` — `{ take: bool }`,
+    solo con `status: 'insurance_decision'`
+  - `POST /api/casino/blackjack/:roundId/hit` — pide una carta en la mano activa
+  - `POST /api/casino/blackjack/:roundId/stand` — planta la mano activa
+  - `POST /api/casino/blackjack/:roundId/double` — dobla la mano activa
+    (solo con 2 cartas); pide una carta y la planta sola
+  - `POST /api/casino/blackjack/:roundId/split` — divide el par inicial en
+    dos manos independientes (una sola vez por ronda)
+
+### Blackjack en vivo (multijugador, Socket.IO)
+A diferencia de todo lo anterior (que es HTTP request/response), la mesa en
+vivo es un socket persistente en `path: /socket.io/live-blackjack`, con el
+JWT en `socket.handshake.auth.token`. Hay 3 mesas fijas corriendo en memoria
+del proceso (`mesa-1`, `mesa-2`, `mesa-vip` — esta última con apuesta mínima
+más alta y menos asientos), cada una con:
+- **Shoe compartido entre todos los sentados**, que NO se reparte de nuevo en
+  cada mano — se re-baraja recién cuando queda menos de un mazo, entre manos.
+- Ciclo de fases con reloj de mesa (nadie controla el ritmo, todos ven lo
+  mismo al mismo tiempo): `betting` (15s para apostar) → `dealing` → cada
+  asiento con apuesta juega su turno en orden (`player_turns`, 20s por
+  turno o se planta solo) → `dealer_phase` → `settlement` (6s mostrando
+  resultados) → vuelve a `betting`.
+- Sin split ni seguro en esta mesa (sí en la mesa de práctica) para no
+  complicar la sincronización entre varios jugadores a la vez.
+- Eventos que emite el cliente: `table:join {tableId, seat}` (seat=false es
+  solo mirar), `table:leave`, `table:bet {amountCents}`, `table:hit`,
+  `table:stand`, `table:double`. El servidor responde con `tables:list` (al
+  conectar), `table:state` (snapshot completo cada vez que algo cambia) y
+  `table:error {message}`.
+- Si alguien se desconecta con una apuesta ya hecha en la mano en curso, no
+  se libera su asiento — sigue jugando en automático (se planta sola si le
+  toca el turno) hasta que la mano termina.
+- Estado en memoria del proceso (no hay Redis/pub-sub todavía): funciona
+  perfecto para un solo servidor, pero no escala horizontalmente tal cual.
 
 ## Cálculo automático de cuotas
 
@@ -124,8 +156,10 @@ sesión y volver a entrar para que el nuevo token incluya el rol.
 Está en `/frontend`. Consume la API del backend, con las páginas:
 - **Login / Registro** — con validación de mayoría de edad.
 - **Deportes** — lista de eventos, cuotas expandibles, boleta de apuesta.
-- **Casino** — ruleta (rojo/negro, par/impar, alto/bajo), tragamonedas y
-  blackjack (pedir/plantarse/doblar, blackjack paga 3:2).
+- **Casino** — ruleta (rojo/negro, par/impar, alto/bajo), tragamonedas,
+  blackjack de práctica (split, seguro, doblar, blackjack paga 3:2) y
+  blackjack en vivo multijugador (varias mesas, shoe compartido, turnos en
+  tiempo real por Socket.IO).
 - **Billetera** — saldo, depósito/retiro simulado, historial.
 - **Admin** (solo visible/accesible con rol `admin`) — dashboard con
   métricas (usuarios, saldo en circulación, apuestas pendientes, resultado

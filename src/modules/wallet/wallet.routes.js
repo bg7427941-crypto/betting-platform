@@ -34,17 +34,6 @@ router.post('/withdraw', async (req, res) => {
   }
 });
 
-router.put('/deposit-limit', async (req, res) => {
-  try {
-    // amount_cents: null (o ausente) para quitar el límite.
-    const amountCents = req.body.amount_cents ?? null;
-    const result = await walletService.setDepositLimit(req.userId, amountCents);
-    res.json(result);
-  } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
-  }
-});
-
 router.get('/history', async (req, res) => {
   try {
     const history = await walletService.getHistory(req.userId, {

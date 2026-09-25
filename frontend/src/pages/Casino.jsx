@@ -5,6 +5,7 @@ import { RouletteWheel } from '../components/RouletteWheel';
 import { BettingTable } from '../components/BettingTable';
 import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
 import BlackjackTable from '../components/BlackjackTable';
+import LiveBlackjack from '../components/LiveBlackjack';
 
 function formatElapsed(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -66,7 +67,10 @@ export default function Casino() {
           Tragamonedas
         </button>
         <button className={tab === 'blackjack' ? 'btn' : 'btn-ghost'} onClick={() => setTab('blackjack')}>
-          Blackjack
+          Blackjack (práctica)
+        </button>
+        <button className={tab === 'live' ? 'btn' : 'btn-ghost'} onClick={() => setTab('live')}>
+          Blackjack en vivo
         </button>
       </div>
 
@@ -83,6 +87,11 @@ export default function Casino() {
       {tab === 'blackjack' && (
         <div key="blackjack" className="casino-tab-panel">
           <BlackjackTable onRoundSettled={handleRoundSettled} />
+        </div>
+      )}
+      {tab === 'live' && (
+        <div key="live" className="casino-tab-panel">
+          <LiveBlackjack />
         </div>
       )}
     </div>
