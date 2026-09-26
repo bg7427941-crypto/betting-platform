@@ -57,7 +57,7 @@ export function BettingTable({
             S/{v}
           </button>
         ))}
-        <button className="btn-ghost" style={{ marginLeft: 'auto' }} onClick={onClearAll} disabled={disabled}>
+        <button className="btn-ghost chip-tray-clear" onClick={onClearAll} disabled={disabled}>
           Limpiar mesa
         </button>
       </div>

@@ -1277,8 +1277,13 @@ button {
 .chip-tray {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.chip-tray-clear {
+  margin-left: auto;
 }
 
 .chip-select {
@@ -1313,10 +1318,14 @@ button {
   display: flex;
   gap: 3px;
   margin-bottom: 3px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .table-grid {
   flex: 1;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -2292,6 +2301,30 @@ button {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+  }
+
+  /* Mesa de ruleta: achicamos celdas para que entren lo más posible antes
+     de necesitar scroll horizontal (contenido solo dentro de la mesa, ya
+     no de toda la página — ver overflow-x en .roulette-table). */
+  .table-cell {
+    font-size: 11px;
+    padding: 8px 2px;
+  }
+
+  .table-cell-outside {
+    font-size: 9px;
+  }
+
+  .table-cell-zero-span {
+    width: 32px;
+  }
+
+  .table-outside-row {
+    flex-wrap: wrap;
+  }
+
+  .table-outside-row .table-cell {
+    flex: 1 1 30%;
   }
 }
 
