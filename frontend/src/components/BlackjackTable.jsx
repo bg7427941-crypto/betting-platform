@@ -78,7 +78,7 @@ function PlayerHand({ hand, index, total, finished }) {
       </div>
       <CardRow cards={hand.cards} />
       {finished && hand.resultOutcome && (
-        <p className={`bj-hand-result mono ${hand.payoutCents > 0 ? 'text-gold' : 'text-brick'}`}>
+        <p className={`bj-hand-result mono ${hand.payoutCents > 0 ? 'text-gold bj-win-glow' : 'text-brick'}`}>
           {OUTCOME_LABEL[hand.resultOutcome] || hand.resultOutcome}
           {hand.payoutCents > 0 ? ` · +${formatCents(hand.payoutCents)}` : ''}
         </p>
@@ -344,7 +344,9 @@ export default function BlackjackTable({ onRoundSettled }) {
 
             {finished && (
               <div className="bj-result">
-                <p className={`bj-result-banner ${round.payoutCents > 0 ? 'text-gold' : 'text-brick'}`}>
+                <p
+                  className={`bj-result-banner ${round.payoutCents > 0 ? 'text-gold bj-win-glow' : 'text-brick'}`}
+                >
                   {round.hands.length > 1
                     ? `Total: ${round.payoutCents > 0 ? `cobrás ${formatCents(round.payoutCents)}` : 'sin cobro'}`
                     : `${OUTCOME_LABEL[round.hands[0].resultOutcome] || round.hands[0].resultOutcome}${

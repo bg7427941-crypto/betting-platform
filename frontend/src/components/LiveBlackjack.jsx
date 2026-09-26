@@ -103,7 +103,7 @@ function Seat({ seat, index, isYou, activeSeatIndex, phase }) {
             {seat.doubled ? ' (doblada)' : ''}
           </p>
           {seat.resultOutcome && (
-            <p className={`mono ${seat.payoutCents > 0 ? 'text-gold' : 'text-brick'}`}>
+            <p className={`mono ${seat.payoutCents > 0 ? 'text-gold bj-win-glow' : 'text-brick'}`}>
               {OUTCOME_LABEL[seat.resultOutcome] || seat.resultOutcome}
               {seat.payoutCents > 0 ? ` · +${formatCents(seat.payoutCents)}` : ''}
             </p>
