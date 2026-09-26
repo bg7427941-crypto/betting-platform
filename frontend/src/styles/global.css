@@ -2152,28 +2152,6 @@ button {
   outline-offset: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* Antes esto apagaba TODAS las animaciones y transiciones del sitio
-     (incluidos hovers de botones, etc.) — se sentía como que todo iba a
-     tirones. Lo acotamos solo a las animaciones "de show" del casino
-     (reparto, flip, shuffle, pulso), que sí pueden marear; el resto de la
-     interfaz (hovers, foco) sigue con sus transiciones normales. */
-  .bj-card-deal,
-  .bj-card-flip,
-  .bj-shuffle-card,
-  .bj-turn-dot,
-  .bj-actions,
-  .bj-result-banner,
-  .bj-win-glow,
-  .bj-hand-result,
-  .bj-streak,
-  .bj-insurance {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-  }
-}
 
 /* ---------- mobile ---------- */
 
