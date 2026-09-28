@@ -2,12 +2,15 @@ const rateLimit = require('express-rate-limit');
 
 /**
  * Límite estricto para login: protege contra fuerza bruta de contraseñas.
- * Cuenta por IP. No cuenta los intentos exitosos, solo los fallidos/todos
- * (por defecto cuenta todos, que es lo más seguro contra brute force).
+ * Cuenta por IP, pero SOLO los intentos fallidos. Antes contaba también los
+ * exitosos: dos dispositivos en la misma red (mismo WiFi = misma IP pública)
+ * compartían el contador y, entre logins, reintentos y refrescos, se quedaban
+ * sin intentos. Con esto el login exitoso no consume cupo.
  */
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   limit: 10,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de inicio de sesión. Intenta de nuevo más tarde.' },
@@ -23,6 +26,18 @@ const registerLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados registros desde esta IP. Intenta de nuevo más tarde.' },
+});
+
+/**
+ * Reenvío del correo de verificación: evita que alguien use el endpoint para
+ * bombardear una casilla ajena con correos.
+ */
+const resendVerificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados reenvíos. Intenta de nuevo en unos minutos.' },
 });
 
 /**
@@ -42,4 +57,4 @@ const casinoPlayLimiter = rateLimit({
   message: { error: 'Estás jugando demasiado rápido. Espera un momento e intenta de nuevo.' },
 });
 
-module.exports = { loginLimiter, registerLimiter, casinoPlayLimiter };
+module.exports = { loginLimiter, registerLimiter, resendVerificationLimiter, casinoPlayLimiter };

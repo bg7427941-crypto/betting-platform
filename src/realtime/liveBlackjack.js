@@ -38,6 +38,22 @@ function attachLiveBlackjack(httpServer, { allowedOrigin } = {}) {
     }
   });
 
+  // Un mismo usuario puede estar conectado desde varios dispositivos a la vez.
+  // La mesa maneja los asientos por userId, así que antes, cuando UNO de los
+  // dispositivos se desconectaba (pestaña cerrada, celular que pierde señal),
+  // el usuario perdía su asiento también en el otro. Ahora solo se lo saca de
+  // la mesa cuando se va su ÚLTIMA conexión a esa mesa.
+  function userHasOtherSocketAtTable(userId, tableId, exceptSocketId) {
+    const room = io.sockets.adapter.rooms.get(tableId);
+    if (!room) return false;
+    for (const id of room) {
+      if (id === exceptSocketId) continue;
+      const other = io.sockets.sockets.get(id);
+      if (other && other.userId === userId) return true;
+    }
+    return false;
+  }
+
   io.on('connection', (socket) => {
     socket.emit(
       'tables:list',
@@ -109,6 +125,7 @@ function attachLiveBlackjack(httpServer, { allowedOrigin } = {}) {
     });
 
     socket.on('disconnect', () => {
+      if (currentTableId && userHasOtherSocketAtTable(socket.userId, currentTableId, socket.id)) return;
       currentTable()?.disconnectUser(socket.userId);
     });
   });

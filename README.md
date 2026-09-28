@@ -23,8 +23,14 @@ npm run dev        # levanta el servidor en modo desarrollo
 ## Endpoints disponibles
 
 ### Auth
-- `POST /api/auth/register` — `{ email, password, fullName, birthDate }`
-- `POST /api/auth/login` — `{ email, password }`
+- `POST /api/auth/register` — `{ email, password, fullName, birthDate }`. Crea la cuenta y envía un correo de verificación; **no** devuelve token (responde `{ user, requiresVerification, emailSent }`).
+- `POST /api/auth/verify-email` — `{ token }`. Token del link del correo (un solo uso, vence a las 24 h por defecto).
+- `POST /api/auth/resend-verification` — `{ email }`. Reenvía el correo (respuesta siempre genérica; cooldown de 60 s).
+- `POST /api/auth/login` — `{ email, password }`. Si el correo no está verificado responde `403` con `code: "EMAIL_NOT_VERIFIED"`. El correo no distingue mayúsculas/minúsculas.
+
+Puedes iniciar sesión con la misma cuenta desde varios dispositivos a la vez (JWT sin estado; no hay sesión única).
+
+**Envío de correos:** define `EMAIL_FROM`, `FRONTEND_URL` y un proveedor (ver `.env.example`): `BREVO_API_KEY` (API HTTPS de Brevo), `RESEND_API_KEY` (API HTTPS de Resend) o `SMTP_*`. Render plan gratis bloquea los puertos SMTP, así que ahí usa Brevo o Resend. Sin ningún proveedor, en desarrollo el link de verificación se imprime en la consola del servidor y el frontend lo muestra en pantalla; en producción el envío falla. Los usuarios que ya existían antes de la migración `006` quedan marcados como verificados automáticamente.
 
 ### Wallet (requieren header `Authorization: Bearer <token>`)
 - `GET  /api/wallet` — saldo actual

@@ -20,7 +20,9 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data.error || `Error ${res.status}`);
+    const err = new Error(data.error || `Error ${res.status}`);
+    err.code = data.code;
+    throw err;
   }
 
   return data;
@@ -29,6 +31,9 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
 export const api = {
   register: (payload) => request('/api/auth/register', { method: 'POST', body: payload, auth: false }),
   login: (payload) => request('/api/auth/login', { method: 'POST', body: payload, auth: false }),
+  verifyEmail: (token) => request('/api/auth/verify-email', { method: 'POST', body: { token }, auth: false }),
+  resendVerification: (email) =>
+    request('/api/auth/resend-verification', { method: 'POST', body: { email }, auth: false }),
 
   getWallet: () => request('/api/wallet'),
   deposit: (amountCents) => request('/api/wallet/deposit', { method: 'POST', body: { amount_cents: amountCents } }),

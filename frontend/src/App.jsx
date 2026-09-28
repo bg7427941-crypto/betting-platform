@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { WalletProvider } from './context/WalletContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 import Layout from './pages/Layout';
 import Sportsbook from './pages/Sportsbook';
 import Casino from './pages/Casino';
@@ -40,6 +41,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
         <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route path="/" element={<PrivateArea />}>
           <Route index element={<Sportsbook />} />
