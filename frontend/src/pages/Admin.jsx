@@ -15,6 +15,12 @@ const RESULT_LABELS = {
   away: 'Visita',
 };
 
+const KYC_LABELS = {
+  pending: 'Pendiente',
+  verified: 'Verificado',
+  rejected: 'Rechazado',
+};
+
 const SPORTS = [
   { value: 'futbol', label: 'Fútbol' },
   { value: 'basket', label: 'Básquet' },
@@ -94,6 +100,7 @@ function pct(p) {
 
 export default function Admin() {
   const [summary, setSummary] = useState(null);
+  const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,12 +110,14 @@ export default function Admin() {
     setLoading(true);
     setError('');
     try {
-      const [summaryData, eventsData, teamsData] = await Promise.all([
+      const [summaryData, usersData, eventsData, teamsData] = await Promise.all([
         api.adminSummary(),
+        api.adminListUsers(),
         api.adminListEvents(),
         api.adminListTeams(),
       ]);
       setSummary(summaryData);
+      setUsers(usersData.users);
       setEvents(eventsData);
       setTeams(teamsData);
     } catch (err) {
@@ -130,6 +139,18 @@ export default function Admin() {
       {error && <div className="error-banner">{error}</div>}
 
       {summary && <SummaryCards summary={summary} />}
+
+      <div className="admin-section">
+        <h2>Usuarios ({users.length})</h2>
+        <p className="text-sage" style={{ fontSize: 12, marginTop: -8, marginBottom: 12 }}>
+          Las contraseñas se guardan hasheadas (bcrypt) — nadie, ni siquiera un admin, puede verlas.
+        </p>
+        {loading && <div className="empty-state">Cargando…</div>}
+        {!loading && users.length === 0 && <div className="empty-state">Todavía no hay usuarios.</div>}
+        {users.map((u) => (
+          <UserAdminRow key={u.id} user={u} />
+        ))}
+      </div>
 
       <div className="admin-section">
         <h2>Equipos ({teams.length})</h2>
@@ -155,6 +176,34 @@ export default function Admin() {
         {events.map((event) => (
           <EventAdminRow key={event.id} event={event} onChanged={loadAll} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Usuarios ----------
+
+function UserAdminRow({ user }) {
+  const kycClass = user.kyc_status === 'verified' ? 'verified' : user.kyc_status === 'rejected' ? 'rejected' : 'pending';
+  return (
+    <div className="ticket" style={{ flexWrap: 'wrap', gap: 14, marginBottom: 10 }}>
+      <div style={{ minWidth: 180 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>{user.full_name}</div>
+        <div className="text-sage mono" style={{ fontSize: 12 }}>
+          {user.email}
+        </div>
+      </div>
+      <div className="text-sage mono" style={{ fontSize: 12 }}>
+        Nació {new Date(user.birth_date).toLocaleDateString('es-PE')}
+      </div>
+      <div className="mono text-gold" style={{ fontSize: 13 }}>
+        {formatCents(user.balance_cents)}
+      </div>
+      <span className={`badge badge-${kycClass}`}>KYC: {KYC_LABELS[user.kyc_status] || user.kyc_status}</span>
+      {user.role === 'admin' && <span className="badge badge-live">Admin</span>}
+      {!user.is_active && <span className="badge badge-inactive">Inactivo</span>}
+      <div className="text-sage mono" style={{ fontSize: 11, marginLeft: 'auto' }}>
+        Registrado {new Date(user.created_at).toLocaleDateString('es-PE')}
       </div>
     </div>
   );

@@ -1548,6 +1548,23 @@ button {
   opacity: 0.6;
 }
 
+.badge-verified {
+  color: var(--sage);
+  border-color: var(--sage);
+}
+
+.badge-rejected {
+  color: var(--brick);
+  border-color: var(--brick);
+  opacity: 0.8;
+}
+
+.badge-inactive {
+  color: var(--brick);
+  border-color: var(--brick);
+  opacity: 0.6;
+}
+
 .admin-section {
   margin-bottom: 28px;
 }

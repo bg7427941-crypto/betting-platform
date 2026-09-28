@@ -1,6 +1,32 @@
 const { query } = require('../../db');
 
 /**
+ * Listado de usuarios para el panel de admin. Trae todo lo que sirve para
+ * gestión (KYC, estado, saldo) pero NUNCA password_hash — un hash de
+ * bcrypt no es la contraseña y no tiene ningún uso mostrarlo en pantalla,
+ * y las contraseñas en texto plano no se guardan en ningún lado (ver
+ * auth.service.js), así que no hay "contraseña real" que exponer.
+ */
+async function listUsers() {
+  const result = await query(
+    `SELECT
+       u.id,
+       u.email,
+       u.full_name,
+       u.birth_date,
+       u.kyc_status,
+       u.role,
+       u.is_active,
+       u.created_at,
+       COALESCE(w.balance_cents, 0)::bigint AS balance_cents
+     FROM users u
+     LEFT JOIN wallets w ON w.user_id = u.id
+     ORDER BY u.created_at DESC`
+  );
+  return result.rows;
+}
+
+/**
  * Resumen agregado para el panel de administración. Son varias queries
  * de solo lectura (no tocan saldo, no necesitan transacción) que corren
  * en paralelo.
@@ -61,4 +87,4 @@ async function getDashboardSummary() {
   };
 }
 
-module.exports = { getDashboardSummary };
+module.exports = { getDashboardSummary, listUsers };

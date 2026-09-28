@@ -54,6 +54,7 @@ export const api = {
     request(`/api/casino/blackjack/${roundId}/insurance`, { method: 'POST', body: { take } }),
 
   adminSummary: () => request('/api/admin/summary'),
+  adminListUsers: () => request('/api/admin/users'),
   adminListEvents: () => request('/api/sports/admin/events'),
   adminCreateEvent: (payload) => request('/api/sports/admin/events', { method: 'POST', body: payload }),
   adminSetOdds: (eventId, payload) =>
