@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AuthHero } from '../components/AuthHero';
-import { api } from '../api/client';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -35,8 +34,7 @@ function PasswordRequirements({ password, touched }) {
 
 export default function Register() {
   const { register } = useAuth();
-  const [result, setResult] = useState(null); // respuesta del registro: pasamos a "revisa tu correo"
-  const [resendMsg, setResendMsg] = useState('');
+  const navigate = useNavigate();
   const [form, setForm] = useState({ fullName: '', email: '', password: '', birthDate: '' });
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [error, setError] = useState('');
@@ -59,52 +57,13 @@ export default function Register() {
     }
     setSubmitting(true);
     try {
-      const res = await register(form);
-      setResult(res);
+      await register(form);
+      navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
-  }
-
-  async function handleResend() {
-    setResendMsg('');
-    try {
-      const res = await api.resendVerification(form.email);
-      setResendMsg(res.message);
-    } catch (err) {
-      setResendMsg(err.message);
-    }
-  }
-
-  if (result) {
-    return (
-      <div className="auth-shell">
-        <div className="auth-card">
-          <AuthHero />
-          <div className="brand">Palco</div>
-          <p className="tagline">Revisa tu correo</p>
-          <p className="text-sage" style={{ fontSize: 14, lineHeight: 1.5 }}>
-            {result.emailSent === false
-              ? 'Creamos tu cuenta, pero no pudimos enviar el correo de verificación. Pídelo de nuevo con el botón de abajo.'
-              : `Te enviamos un enlace de verificación a ${form.email}. Ábrelo para activar tu cuenta; después podrás iniciar sesión.`}
-          </p>
-          {result.devLink && (
-            <p className="text-sage" style={{ fontSize: 13, wordBreak: 'break-all' }}>
-              (Modo desarrollo, sin SMTP) <a className="text-gold" href={result.devLink}>Verificar ahora</a>
-            </p>
-          )}
-          <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 16 }} onClick={handleResend}>
-            Reenviar correo
-          </button>
-          {resendMsg && <p className="text-sage" style={{ marginTop: 10, fontSize: 14 }}>{resendMsg}</p>}
-          <p className="text-sage" style={{ marginTop: 20, fontSize: 14 }}>
-            <Link to="/login" className="text-gold">Ir a iniciar sesión</Link>
-          </p>
-        </div>
-      </div>
-    );
   }
 
   return (

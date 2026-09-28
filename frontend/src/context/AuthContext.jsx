@@ -24,9 +24,9 @@ export function AuthProvider({ children }) {
     persist(user, token);
   }
 
-  // Ya no inicia sesión: primero hay que verificar el correo.
   async function register({ email, password, fullName, birthDate }) {
-    return api.register({ email, password, fullName, birthDate });
+    const { user, token } = await api.register({ email, password, fullName, birthDate });
+    persist(user, token);
   }
 
   function logout() {

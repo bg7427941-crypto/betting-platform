@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api/client';
 import { AuthHero } from '../components/AuthHero';
 
 export default function Login() {
@@ -10,34 +9,19 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [resendMsg, setResendMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setResendMsg('');
-    setNeedsVerification(false);
     setSubmitting(true);
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
       setError(err.message);
-      setNeedsVerification(err.code === 'EMAIL_NOT_VERIFIED');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleResend() {
-    setResendMsg('');
-    try {
-      const res = await api.resendVerification(email);
-      setResendMsg(res.message);
-    } catch (err) {
-      setResendMsg(err.message);
     }
   }
 
@@ -49,14 +33,6 @@ export default function Login() {
         <p className="tagline">Apuestas deportivas y casino, en un solo lugar.</p>
 
         {error && <div className="error-banner">{error}</div>}
-        {needsVerification && (
-          <div style={{ marginBottom: 16 }}>
-            <button type="button" className="btn-ghost" style={{ width: '100%' }} onClick={handleResend}>
-              Reenviar correo de verificación
-            </button>
-            {resendMsg && <p className="text-sage" style={{ marginTop: 10, fontSize: 14 }}>{resendMsg}</p>}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit}>
           <div className="field">

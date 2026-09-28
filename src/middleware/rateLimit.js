@@ -29,18 +29,6 @@ const registerLimiter = rateLimit({
 });
 
 /**
- * Reenvío del correo de verificación: evita que alguien use el endpoint para
- * bombardear una casilla ajena con correos.
- */
-const resendVerificationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiados reenvíos. Intenta de nuevo en unos minutos.' },
-});
-
-/**
  * Límite para rondas de casino: evita spam de requests para "fuerza bruta"
  * de resultados o sobrecarga del servidor con giros automatizados.
  * Cuenta por IP (podría combinarse con userId si se quiere ser más fino).
@@ -57,4 +45,4 @@ const casinoPlayLimiter = rateLimit({
   message: { error: 'Estás jugando demasiado rápido. Espera un momento e intenta de nuevo.' },
 });
 
-module.exports = { loginLimiter, registerLimiter, resendVerificationLimiter, casinoPlayLimiter };
+module.exports = { loginLimiter, registerLimiter, casinoPlayLimiter };
