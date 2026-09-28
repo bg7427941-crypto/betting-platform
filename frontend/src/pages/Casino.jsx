@@ -6,6 +6,7 @@ import { BettingTable } from '../components/BettingTable';
 import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
 import BlackjackTable from '../components/BlackjackTable';
 import LiveBlackjack from '../components/LiveBlackjack';
+import * as sound from '../lib/sound';
 
 function formatElapsed(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -111,6 +112,7 @@ function Roulette({ onRoundSettled }) {
 
   function placeChip(key, betShape) {
     setResult(null);
+    sound.playChip();
     setPlacedBets((prev) => {
       const existing = prev[key];
       const stakeCents = (existing?.stakeCents || 0) + selectedChip * 100;
@@ -149,6 +151,8 @@ function Roulette({ onRoundSettled }) {
     setResult(pendingResult);
     setPlacedBets({});
     onRoundSettled && onRoundSettled(pendingResult.payout_cents - pendingResult.stake_cents);
+    if (pendingResult.payout_cents > pendingResult.stake_cents) sound.playWin();
+    else sound.playLose();
   }
 
   const wonBets = result?.outcome.bets.filter((b) => b.won) || [];
@@ -414,6 +418,7 @@ function Slots({ onRoundSettled }) {
       // (cuántos giros, qué multiplicador) y recién con eso — o con el
       // click de "Empezar" — se dispara la cascada de carretes.
       setBonusIntroVisible(true);
+      sound.playBlackjack();
       const introMs = turbo ? 900 : 2000;
       const t = setTimeout(() => startBonusSpins(), introMs);
       bonusIntroTimer.current = t;
@@ -424,6 +429,12 @@ function Slots({ onRoundSettled }) {
     setSpinning(false);
     setRound(pendingRound);
     onRoundSettled && onRoundSettled(pendingRound.payout_cents - pendingRound.stake_cents);
+    if (pendingRound.payout_cents > pendingRound.stake_cents) {
+      if (pendingRound.outcome.multiplier >= BIG_WIN_MULTIPLIER) sound.playBlackjack();
+      else sound.playWin();
+    } else {
+      sound.playLose();
+    }
     continueAutoplayIfNeeded();
   }
 
@@ -482,6 +493,8 @@ function Slots({ onRoundSettled }) {
     setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
     onRoundSettled &&
       onRoundSettled(pendingRoundRef.current.payout_cents - pendingRoundRef.current.stake_cents);
+    if (pendingRoundRef.current.payout_cents > pendingRoundRef.current.stake_cents) sound.playBlackjack();
+    else sound.playLose();
     continueAutoplayIfNeeded();
   }
 

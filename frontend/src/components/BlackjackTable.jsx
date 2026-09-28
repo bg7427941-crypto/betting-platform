@@ -129,6 +129,7 @@ export default function BlackjackTable({ onRoundSettled }) {
   useEffect(() => {
     if (round && prevStatusRef.current !== 'finished' && round.status === 'finished') {
       setDealerRevealNonce((n) => n + 1);
+      sound.playCardFlip();
     }
     prevStatusRef.current = round ? round.status : null;
   }, [round]);
@@ -191,6 +192,7 @@ export default function BlackjackTable({ onRoundSettled }) {
     setLoading(true);
     setLoadingAction('start');
     setShuffling(true);
+    sound.playCardShuffle();
     const shuffleWait = new Promise((resolve) => setTimeout(resolve, SHUFFLE_MS));
     try {
       const [{ round: newRound }] = await Promise.all([api.startBlackjack(stakeCents), shuffleWait]);

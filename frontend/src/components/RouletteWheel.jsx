@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import * as sound from '../lib/sound';
 
 // Orden real de los números en una ruleta europea (37 casillas)
 export const WHEEL_ORDER = [
@@ -112,6 +113,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       tickInterval.current = setInterval(() => {
         setRotation((r) => r + WHEEL_TICK_DEG);
         setBallRotation((r) => r - BALL_TICK_DEG);
+        sound.playBallTick();
       }, TICK_MS);
     }
     return () => {
@@ -151,6 +153,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     const doneTimer = setTimeout(() => {
       setLanded(true);
       setBouncing(true);
+      sound.playBallLand();
       onSettled && onSettled();
       const bounceTimer = setTimeout(() => setBouncing(false), 420);
       timers.current.push(bounceTimer);

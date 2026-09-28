@@ -156,6 +156,7 @@ export default function LiveBlackjack() {
     if (!table) return;
     if (prevPhaseRef.current && prevPhaseRef.current !== table.phase) {
       if (table.phase === 'dealing') sound.playDealSequence(6);
+      if (table.phase === 'dealer_phase') sound.playCardFlip();
       if (table.phase === 'settlement' && user) {
         const mine = table.seats.find((s) => s && s.userId === user.id);
         if (mine && mine.resultOutcome) {

@@ -159,7 +159,8 @@ Está en `/frontend`. Consume la API del backend, con las páginas:
 - **Casino** — ruleta (rojo/negro, par/impar, alto/bajo), tragamonedas,
   blackjack de práctica (split, seguro, doblar, blackjack paga 3:2) y
   blackjack en vivo multijugador (varias mesas, shoe compartido, turnos en
-  tiempo real por Socket.IO).
+  tiempo real por Socket.IO). Sonido con muestras reales (no sintetizado) en
+  los cuatro juegos — ver `frontend/public/sfx/`.
 - **Billetera** — saldo, depósito/retiro simulado, historial.
 - **Admin** (solo visible/accesible con rol `admin`) — dashboard con
   métricas (usuarios, saldo en circulación, apuestas pendientes, resultado
@@ -171,6 +172,11 @@ Está en `/frontend`. Consume la API del backend, con las páginas:
 
 Diseño: paleta "tapete de casino" (verde fieltro + dorado), tipografía
 Fraunces para títulos e IBM Plex Sans/Mono para interfaz y números.
+
+Sonido: muestras reales (no sintetizadas), de los packs "Casino Audio",
+"Music Jingles" e "Impact Sounds" de Kenney Vleugels (kenney.nl), CC0 — ver
+`frontend/public/sfx/CREDITS.txt`. Todo se reproduce con `<audio>` nativo
+(`frontend/src/lib/sound.js`), sin librerías de audio de por medio.
 
 ```bash
 cd frontend

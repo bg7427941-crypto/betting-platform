@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import * as sound from '../lib/sound';
 
 // Debe reflejar EXACTAMENTE las 10 líneas de src/modules/casino/games.engine.js
 // (fila por carril, 0 = arriba, 2 = abajo) — es lo que permite dibujar la línea
@@ -101,6 +102,7 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
           return next;
         });
         setStoppedReels(reelIndex + 1);
+        sound.playReelStop(reelIndex);
         if (reelIndex === stopDelays.length - 1) {
           const settleTimer = setTimeout(() => {
             setShowLines(true);
