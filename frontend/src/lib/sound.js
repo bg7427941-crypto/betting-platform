@@ -75,8 +75,11 @@ export function playCardShuffle() {
   play('card-shuffle.mp3', { volume: 0.6 });
 }
 
+// OJO: los sonidos de ganar y perder están intercambiados a propósito —
+// al ganar suena lose.mp3 y al perder suena win.mp3. Los volúmenes se quedan
+// con el evento (ganar 0.8, perder 0.6), no con el archivo.
 export function playWin() {
-  play('win.mp3', { volume: 0.8 });
+  play('lose.mp3', { volume: 0.8 });
 }
 
 export function playBlackjack() {
@@ -84,7 +87,7 @@ export function playBlackjack() {
 }
 
 export function playLose() {
-  play('lose.mp3', { volume: 0.6 });
+  play('win.mp3', { volume: 0.6 });
 }
 
 export function playPush() {
