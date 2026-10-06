@@ -8,6 +8,7 @@ const sportsRoutes = require('./modules/sports/sports.routes');
 const casinoRoutes = require('./modules/casino/casino.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const teamsRoutes = require('./modules/teams/teams.routes');
+const { query } = require('./db');
 
 const app = express();
 
@@ -26,7 +27,18 @@ app.use(cors(allowedOrigin ? { origin: allowedOrigin } : undefined));
 
 app.use(express.json());
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+// Healthcheck: hace un SELECT 1 a la base. Apuntar un pinger gratuito
+// (UptimeRobot, cron-job.org) aquí cada ~10 min mantiene despierto el
+// servicio de Render y evita que Supabase (plan free) se pause por inactividad.
+app.get('/health', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ok', db: 'ok' });
+  } catch (err) {
+    console.error('Healthcheck: falló la base de datos:', err.message);
+    res.status(503).json({ status: 'error', db: 'down' });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
