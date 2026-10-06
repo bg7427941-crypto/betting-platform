@@ -1,0 +1,225 @@
+/* =========================================================
+   UX — mejoras de interacción encima de global.css.
+   Usa solo los tokens existentes (felt/gold/brick/parchment/sage),
+   así que funciona igual en tema oscuro y claro.
+   ========================================================= */
+
+/* ---------- avisos ---------- */
+
+.success-banner {
+  background: rgba(201, 162, 39, 0.12);
+  border: 1px solid var(--gold);
+  color: var(--parchment);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--gold);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--parchment);
+}
+
+.field-hint {
+  font-size: 13px;
+  color: var(--sage);
+  margin: -8px 0 14px;
+}
+
+/* El rojo "brick" sobre el fieltro oscuro tiene poco contraste para texto
+   chico: marcamos el error con borde y dejamos el texto en parchment. */
+.field-hint.is-error {
+  color: var(--parchment);
+  border-left: 2px solid var(--brick);
+  padding-left: 8px;
+}
+
+/* ---------- montos rápidos ---------- */
+
+.quick-amounts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: -4px 0 16px;
+}
+
+.chip-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  background: var(--felt);
+  border: 1px solid var(--line);
+  color: var(--parchment);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.chip-amount:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+
+.chip-amount.active {
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.14);
+  color: var(--gold);
+}
+
+.chip-amount:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- deportes ---------- */
+
+.view-switch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.sb-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.sb-events {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-ticket {
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+
+.event-ticket + .event-ticket {
+  border-top: 1px solid var(--line);
+}
+
+/* Cabecera del evento: antes era un <div onClick>; ahora es un botón real
+   (teclado, lector de pantalla, foco visible). */
+.event-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.event-chevron {
+  color: var(--sage);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.event-head[aria-expanded='true'] .event-chevron {
+  transform: rotate(180deg);
+}
+
+.odds-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.betslip {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+}
+
+.betslip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.betslip-close {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--sage);
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.betslip-close:hover {
+  border-color: var(--gold);
+  color: var(--parchment);
+}
+
+.wallet-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 760px) {
+  .sb-layout {
+    flex-direction: column;
+  }
+
+  /* La boleta pasa a ser una hoja fija abajo: antes quedaba apretada al
+     lado de la lista (280px fijos) y se salía de la pantalla. */
+  .betslip {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    z-index: 20;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-width: 1px 0 0;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sb-layout.has-slip .sb-events {
+    padding-bottom: 340px;
+  }
+
+  .field input {
+    font-size: 16px; /* evita el zoom automático de iOS al enfocar */
+  }
+}

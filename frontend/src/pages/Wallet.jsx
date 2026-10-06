@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
+import { useNotice } from '../lib/useNotice';
+import QuickAmounts from '../components/QuickAmounts';
 
 const TYPE_LABELS = {
   deposit: 'Depósito',
@@ -15,40 +17,45 @@ export default function Wallet() {
   const [amount, setAmount] = useState('20');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useNotice();
   const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
 
   useEffect(() => {
     loadHistory();
   }, []);
 
   async function loadHistory() {
+    setHistoryError('');
     try {
       const data = await api.walletHistory();
       setHistory(data);
     } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleDeposit() {
-    setBusy(true);
-    setError('');
-    try {
-      await api.deposit(Math.round(Number(amount) * 100));
-      await refresh();
-      await loadHistory();
-    } catch (err) {
-      setError(err.message);
+      setHistoryError(err.message);
     } finally {
-      setBusy(false);
+      setHistoryLoading(false);
     }
   }
 
-  async function handleWithdraw() {
+  const amountValue = Number(amount);
+  const amountCents = Math.round(amountValue * 100);
+  const amountInvalid = amount === '' || !Number.isFinite(amountValue) || amountCents < 100;
+  const overBalance = balanceCents !== null && !amountInvalid && amountCents > balanceCents;
+
+  async function run(kind) {
+    if (amountInvalid || busy) return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
-      await api.withdraw(Math.round(Number(amount) * 100));
+      if (kind === 'deposit') {
+        await api.deposit(amountCents);
+        setNotice(`Depósito realizado: +${formatCents(amountCents)}.`);
+      } else {
+        await api.withdraw(amountCents);
+        setNotice(`Retiro realizado: −${formatCents(amountCents)}.`);
+      }
       await refresh();
       await loadHistory();
     } catch (err) {
@@ -71,18 +78,51 @@ export default function Wallet() {
           {formatCents(balanceCents)}
         </div>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && (
+          <div className="error-banner" role="alert">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div className="success-banner" role="status">
+            {notice}
+          </div>
+        )}
 
         <div className="field" style={{ maxWidth: 180 }}>
           <label htmlFor="amount">Monto (PEN)</label>
-          <input id="amount" type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input
+            id="amount"
+            type="number"
+            inputMode="decimal"
+            min="1"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            aria-invalid={amountInvalid}
+            aria-describedby="amount-hint"
+          />
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn" onClick={handleDeposit} disabled={busy}>
-            Depositar
+        <QuickAmounts value={amount} onPick={setAmount} disabled={busy} />
+
+        <div id="amount-hint" aria-live="polite">
+          {amountInvalid && <div className="field-hint is-error">Ingresa un monto de al menos S/ 1.</div>}
+          {overBalance && (
+            <div className="field-hint">
+              Supera tu saldo: puedes depositar, pero solo retirar hasta {formatCents(balanceCents)}.
+            </div>
+          )}
+        </div>
+
+        <div className="wallet-actions">
+          <button className="btn" onClick={() => run('deposit')} disabled={busy || amountInvalid}>
+            {busy ? 'Procesando…' : 'Depositar'}
           </button>
-          <button className="btn-ghost" onClick={handleWithdraw} disabled={busy}>
+          <button
+            className="btn-ghost"
+            onClick={() => run('withdraw')}
+            disabled={busy || amountInvalid || overBalance}
+          >
             Retirar
           </button>
         </div>
@@ -92,7 +132,24 @@ export default function Wallet() {
         Historial
       </h2>
 
-      {history.length === 0 && <div className="empty-state">Todavía no hay movimientos.</div>}
+      {historyError && (
+        <div className="error-banner" role="alert">
+          No pudimos cargar el historial ({historyError}).{' '}
+          <button className="link-btn" onClick={loadHistory}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {historyLoading && (
+        <div className="empty-state" role="status">
+          Cargando movimientos…
+        </div>
+      )}
+
+      {!historyLoading && !historyError && history.length === 0 && (
+        <div className="empty-state">Todavía no hay movimientos. Haz tu primer depósito arriba.</div>
+      )}
 
       {history.map((tx) => (
         <div className="ticket" key={tx.id} style={{ marginBottom: 8 }}>
