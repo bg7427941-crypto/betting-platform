@@ -27,6 +27,8 @@ pnpm-debug.log*
 # Coverage and test output
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
 
 # Vite cache
 frontend/.vite/

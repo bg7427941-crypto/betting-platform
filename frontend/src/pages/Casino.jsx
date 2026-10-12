@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
@@ -11,6 +11,7 @@ import * as sound from '../lib/sound';
 import Icon from '../components/Icon';
 import AnimatedAmount from '../components/AnimatedAmount';
 import SoundControls from '../components/SoundControls';
+import { SlotArtwork, SlotSymbol } from '../components/SlotArtwork';
 
 const GAMES = [
   {
@@ -352,6 +353,7 @@ const ANTE_LABELS = {
 
 function Slots({ onRoundSettled }) {
   const { balanceCents, refresh } = useWallet();
+  const artworkId = `corona-${useId().replaceAll(':', '')}`;
   const [stakeCents, setStakeCents] = useState(500);
   const [anteTier, setAnteTier] = useState('none');
   const [turbo, setTurbo] = useState(false);
@@ -360,11 +362,13 @@ function Slots({ onRoundSettled }) {
   const [round, setRound] = useState(null);
   const [error, setError] = useState('');
   const [showPaytable, setShowPaytable] = useState(false);
+  const [lastPayoutCents, setLastPayoutCents] = useState(0);
   const [dismissedBigWin, setDismissedBigWin] = useState(false);
   const [slotsConfig, setSlotsConfig] = useState(null);
   const [autoplayTotal, setAutoplayTotal] = useState(null); // null = no está en autoplay
   const [autoplayRemaining, setAutoplayRemaining] = useState(0);
   const autoplayRef = useRef(false);
+  const autoplayRemainingRef = useRef(0);
   const pendingRoundRef = useRef(null); // guarda el round que disparó el bono, sin re-alimentar displayResult
 
   // --- reproducción del bono de giros gratis (backend ya jugó toda la
@@ -428,6 +432,7 @@ function Slots({ onRoundSettled }) {
   function startAutoplay(count) {
     setAutoplayTotal(count);
     setAutoplayRemaining(count);
+    autoplayRemainingRef.current = count;
     autoplayRef.current = true;
     spin();
   }
@@ -436,6 +441,7 @@ function Slots({ onRoundSettled }) {
     autoplayRef.current = false;
     setAutoplayTotal(null);
     setAutoplayRemaining(0);
+    autoplayRemainingRef.current = 0;
   }
 
   // continúa el autoplay (si corresponde) después de que un resultado ya
@@ -443,23 +449,22 @@ function Slots({ onRoundSettled }) {
   // tras terminar de reproducir un bono.
   function continueAutoplayIfNeeded() {
     if (!autoplayRef.current) return;
-    setAutoplayRemaining((prev) => {
-      const next = prev - 1;
-      const canContinue = next > 0 && balanceCents >= normalCostCents;
-      if (canContinue) {
-        const t = setTimeout(() => {
-          if (autoplayRef.current) spin();
-        }, AUTOPLAY_GAP_MS);
-        bonusTimers.current.push(t);
-      } else {
-        autoplayRef.current = false;
-        setAutoplayTotal(null);
-      }
-      return Math.max(next, 0);
-    });
+    const next = Math.max(0, autoplayRemainingRef.current - 1);
+    autoplayRemainingRef.current = next;
+    setAutoplayRemaining(next);
+    if (next > 0 && balanceCents >= normalCostCents) {
+      const timer = setTimeout(() => {
+        if (autoplayRef.current) spin();
+      }, AUTOPLAY_GAP_MS);
+      bonusTimers.current.push(timer);
+    } else {
+      autoplayRef.current = false;
+      setAutoplayTotal(null);
+    }
   }
 
   function handleSettled() {
+    if (!pendingRound) return;
     if (pendingRound?.outcome.bonus) {
       // Guardamos el round en un ref (para revelarlo al final) y limpiamos
       // el estado `pendingRound` — si lo dejáramos, al terminar el bono
@@ -490,6 +495,7 @@ function Slots({ onRoundSettled }) {
 
     setSpinning(false);
     setRound(pendingRound);
+    setLastPayoutCents(pendingRound.payout_cents);
     onRoundSettled && onRoundSettled(pendingRound.payout_cents - pendingRound.stake_cents);
     if (pendingRound.payout_cents > pendingRound.stake_cents) {
       if (pendingRound.outcome.multiplier >= BIG_WIN_MULTIPLIER) sound.playBlackjack();
@@ -508,6 +514,7 @@ function Slots({ onRoundSettled }) {
   }
 
   function handleBonusSpinSettled() {
+    setBonusSpinning(false);
     const currentSpin = bonusSpins[bonusIndex];
     const spinPayoutCents = Math.round(currentSpin.payoutMultiplier * stakeAtBonusStart.current);
     // Se necesita el total ya sumado (no el viejo `bonusRunningCents`, que
@@ -523,7 +530,7 @@ function Slots({ onRoundSettled }) {
     }
 
     const nextIndex = bonusIndex + 1;
-    const pauseMs = turbo ? 260 : 550;
+    const pauseMs = turbo ? 500 : 900;
 
     if (nextIndex < bonusSpins.length) {
       const t = setTimeout(() => {
@@ -553,6 +560,7 @@ function Slots({ onRoundSettled }) {
     setBonusOutroVisible(false);
     setSpinning(false);
     setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
+    setLastPayoutCents(pendingRoundRef.current.payout_cents);
     onRoundSettled &&
       onRoundSettled(pendingRoundRef.current.payout_cents - pendingRoundRef.current.stake_cents);
     if (pendingRoundRef.current.payout_cents > pendingRoundRef.current.stake_cents)
@@ -568,27 +576,49 @@ function Slots({ onRoundSettled }) {
   const canAffordBonus = balanceCents >= buyBonusCostCents;
 
   const displayResult = bonusActive ? bonusSpins[bonusIndex] : pendingRound?.outcome;
-  const displaySpinning = bonusActive ? bonusSpinning : spinning;
+  const displaySpinning = bonusActive
+    ? bonusSpinning
+    : spinning && !bonusIntroVisible && !bonusOutroVisible;
   const displayOnSettled = bonusActive ? handleBonusSpinSettled : handleSettled;
 
   return (
     <div className="slot-cabinet">
+      <SlotArtwork id={artworkId} />
       {error && <div className="error-banner">{error}</div>}
 
       <div className="slot-marquee">
-        <div className="slot-marquee-bulbs">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <span key={i} className="slot-bulb" style={{ animationDelay: `${(i % 7) * 0.12}s` }} />
-          ))}
+        <div className="slot-brand-emblem">
+          <SlotSymbol symbol="👑" artworkId={artworkId} decorative />
         </div>
-        <div className="slot-title">Corona Real</div>
-        <div className="slot-subtitle">5 carriles · 10 líneas · comodín y scatter</div>
+        <div>
+          <div className="slot-edition">LA COLECCIÓN PALCO</div>
+          <h2 className="slot-title">Corona Real</h2>
+          <div className="slot-subtitle">Cinco carretes. Una experiencia real.</div>
+        </div>
+        <span className="slot-game-seal">
+          5 × 3<span>10 líneas</span>
+        </span>
+      </div>
+
+      <div className="slot-balance-strip">
+        <div>
+          <span>Tu saldo</span>
+          <strong>{formatCents(balanceCents || 0)}</strong>
+        </div>
+        <div>
+          <span>Apuesta total</span>
+          <strong>{formatCents(normalCostCents)}</strong>
+        </div>
+        <div>
+          <span>Último premio</span>
+          <strong>{formatCents(lastPayoutCents)}</strong>
+        </div>
       </div>
 
       {bonusActive && bonusInfo && (
         <div className="slot-bonus-bar">
           <div>
-            <span className="text-gold">🎁 Bono de giros gratis</span>
+            <span className="text-gold">Corona Ascendente · Giros gratis</span>
             <span className="text-sage" style={{ marginLeft: 8 }}>
               multiplicador ×{bonusInfo.bonusMultiplier}
             </span>
@@ -604,12 +634,13 @@ function Slots({ onRoundSettled }) {
         <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>
       )}
 
-      <div style={{ position: 'relative' }}>
+      <div className="slot-stage">
         <SlotMachine
           spinning={displaySpinning}
           result={displayResult}
-          turbo={bonusActive ? true : turbo}
+          turbo={turbo}
           onSettled={displayOnSettled}
+          artworkId={artworkId}
         />
 
         {isBigWin && (
@@ -642,7 +673,7 @@ function Slots({ onRoundSettled }) {
           <div className="slot-bonus-intro-overlay">
             <div className="slot-bonus-intro-ring" />
             <div className="slot-bonus-intro-kicker">
-              {bonusInfo.triggerScatterCount}× 💰 — ¡bono activado!
+              {bonusInfo.triggerScatterCount} símbolos de bono · Corona Ascendente
             </div>
             <div className="slot-bonus-intro-title">GIROS GRATIS</div>
             <div className="slot-bonus-intro-detail">
@@ -668,23 +699,61 @@ function Slots({ onRoundSettled }) {
         )}
       </div>
 
+      <div className="slot-round-status" role="status" aria-live="polite">
+        <span
+          className={`slot-status-dot ${displaySpinning ? 'is-spinning' : ''}`}
+          aria-hidden="true"
+        />
+        <div>
+          <strong>
+            {bonusIntroVisible
+              ? 'Corona Ascendente activada'
+              : bonusOutroVisible
+                ? 'Bono completado'
+                : bonusActive
+                  ? `Giro gratis ${bonusIndex + 1} de ${bonusSpins.length}`
+                  : spinning
+                    ? 'Girando los carretes…'
+                    : round
+                      ? round.outcome.won
+                        ? `Premio de ${formatCents(round.payout_cents)}`
+                        : 'Giro completado'
+                      : 'Todo listo para tu próximo giro'}
+          </strong>
+          <span>
+            {bonusActive
+              ? `Acumulado: ${formatCents(bonusRunningCents)}`
+              : spinning
+                ? 'Cada carrete se detiene de izquierda a derecha.'
+                : round
+                  ? 'Puedes revisar las combinaciones en la tabla de pagos.'
+                  : 'Tres símbolos iguales desde la izquierda forman una combinación.'}
+          </span>
+        </div>
+      </div>
+
       <div className="slot-controls">
-        <div className="slot-bet-stepper">
-          <button
-            type="button"
-            onClick={() => setStakeCents((c) => Math.max(MIN_STAKE_CENTS, c - BET_STEP_CENTS))}
-            disabled={spinning || stakeCents <= MIN_STAKE_CENTS}
-          >
-            −
-          </button>
-          <span className="slot-bet-value mono">{formatCents(stakeCents)}</span>
-          <button
-            type="button"
-            onClick={() => setStakeCents((c) => c + BET_STEP_CENTS)}
-            disabled={spinning}
-          >
-            +
-          </button>
+        <div className="slot-wager-control">
+          <span className="slot-wager-label">Apuesta base</span>
+          <div className="slot-bet-stepper">
+            <button
+              type="button"
+              onClick={() => setStakeCents((c) => Math.max(MIN_STAKE_CENTS, c - BET_STEP_CENTS))}
+              disabled={spinning || stakeCents <= MIN_STAKE_CENTS}
+              aria-label="Reducir apuesta"
+            >
+              −
+            </button>
+            <span className="slot-bet-value mono">{formatCents(stakeCents)}</span>
+            <button
+              type="button"
+              onClick={() => setStakeCents((c) => c + BET_STEP_CENTS)}
+              disabled={spinning}
+              aria-label="Aumentar apuesta"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <button
@@ -692,9 +761,10 @@ function Slots({ onRoundSettled }) {
           className={`slot-turbo-toggle ${turbo ? 'active' : ''}`}
           onClick={() => setTurbo((v) => !v)}
           disabled={spinning}
-          title="Giro rápido"
+          aria-pressed={turbo}
+          title="Cambiar entre ritmo normal y rápido"
         >
-          ⚡ Turbo
+          <Icon name="play" size={16} /> {turbo ? 'Ritmo rápido' : 'Ritmo normal'}
         </button>
 
         {isAutoplaying ? (
@@ -728,70 +798,64 @@ function Slots({ onRoundSettled }) {
         </div>
       )}
 
-      <div className="slot-ante-row">
-        <span className="text-sage slot-ante-label">Apuesta ante (más chance de scatter):</span>
-        {Object.keys(anteTiers).map((key) => (
-          <button
-            key={key}
-            className={`slot-ante-btn ${anteTier === key ? 'selected' : ''}`}
-            onClick={() => setAnteTier(key)}
-            disabled={spinning || isAutoplaying}
-          >
-            {ANTE_LABELS[key]}
-          </button>
-        ))}
-      </div>
-
-      <div className="slot-buy-bonus-row">
-        <button
-          className="slot-buy-bonus-btn"
-          onClick={() => spin({ buyBonus: true })}
-          disabled={spinning || isAutoplaying || !canAffordBonus}
-        >
-          <span>💰 Comprar bono (scatter garantizado)</span>
-          <span className="mono">{formatCents(buyBonusCostCents)}</span>
-        </button>
-      </div>
-
-      {!isAutoplaying && (
-        <div className="slot-autoplay-row">
-          <span className="text-sage" style={{ fontSize: 12 }}>
-            Autoplay:
-          </span>
-          {AUTOPLAY_OPTIONS.map((n) => (
+      <details className="slot-options">
+        <summary>
+          Opciones de juego<span>Ante · Automático · Bono</span>
+        </summary>
+        <div className="slot-ante-row">
+          <span className="text-sage slot-ante-label">Ante · Mayor probabilidad de bono</span>
+          {Object.keys(anteTiers).map((key) => (
             <button
-              key={n}
-              className="btn-ghost slot-autoplay-btn"
-              onClick={() => startAutoplay(n)}
-              disabled={spinning || !canAffordNormal}
+              key={key}
+              className={`slot-ante-btn ${anteTier === key ? 'selected' : ''}`}
+              onClick={() => setAnteTier(key)}
+              disabled={spinning || isAutoplaying}
             >
-              {n}×
+              {ANTE_LABELS[key]}
             </button>
           ))}
         </div>
-      )}
 
-      {round && !isBigWin && (
-        <div className="result-reveal" style={{ marginTop: 12 }}>
-          {round.outcome.won ? (
-            <span className="text-gold">Ganaste {formatCents(round.payout_cents)}</span>
-          ) : (
-            <span className="text-sage">Sin suerte esta vez</span>
-          )}
-          {round.outcome.scatterCount >= 2 && round.outcome.scatterCount < 3 && (
-            <span className="text-sage" style={{ marginLeft: 8, fontSize: 12 }}>
-              ({round.outcome.scatterCount} símbolos scatter)
-            </span>
-          )}
+        <div className="slot-buy-bonus-row">
+          <button
+            className="slot-buy-bonus-btn"
+            onClick={() => spin({ buyBonus: true })}
+            disabled={spinning || isAutoplaying || !canAffordBonus}
+          >
+            <span>Comprar bono · Corona Ascendente</span>
+            <span className="mono">{formatCents(buyBonusCostCents)}</span>
+          </button>
         </div>
-      )}
+
+        {!isAutoplaying && (
+          <div className="slot-autoplay-row">
+            <span className="text-sage" style={{ fontSize: 12 }}>
+              Giros automáticos:
+            </span>
+            {AUTOPLAY_OPTIONS.map((n) => (
+              <button
+                key={n}
+                className="btn-ghost slot-autoplay-btn"
+                onClick={() => startAutoplay(n)}
+                disabled={spinning || !canAffordNormal}
+              >
+                {n}×
+              </button>
+            ))}
+          </div>
+        )}
+      </details>
 
       <div className="slot-readout-row">
         <span>Apostado por línea</span>
         <span className="slot-readout-value">{formatCents(Math.round(stakeCents / 10))} × 10</span>
       </div>
 
-      <button className="slot-paytable-toggle" onClick={() => setShowPaytable((v) => !v)}>
+      <button
+        className="slot-paytable-toggle"
+        aria-expanded={showPaytable}
+        onClick={() => setShowPaytable((v) => !v)}
+      >
         {showPaytable ? 'Ocultar tabla de pagos' : 'Ver tabla de pagos'}
       </button>
 
@@ -799,7 +863,11 @@ function Slots({ onRoundSettled }) {
         <div className="slot-paytable">
           {SLOT_PAYTABLE.map((row) => (
             <div className="slot-paytable-row" key={row.symbol}>
-              <span className="slot-paytable-symbol">{row.symbol}</span>
+              <span className="slot-paytable-symbol">
+                {row.symbol.split(' ').map((symbol) => (
+                  <SlotSymbol key={symbol} symbol={symbol} artworkId={artworkId} />
+                ))}
+              </span>
               <span className="slot-paytable-values">{row.values}</span>
             </div>
           ))}

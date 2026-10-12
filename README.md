@@ -195,10 +195,14 @@ Las grabaciones son CC0; las fuentes, archivos originales y licencias están en
 `frontend/public/sfx/CREDITS.txt`.
 
 La ruleta usa animaciones del navegador para sus capas de rueda y bola, sin
-renderizar el SVG en cada paso del giro. Los carretes usan transformaciones,
-sin filtros de desenfoque animados. Los relojes de sesión/mesa y el contador de
+renderizar el SVG en cada paso del giro. Corona Real usa cinco carretes completos,
+símbolos SVG originales y un frenado que mantiene la velocidad inicial del giro.
+El ritmo normal/rápido se aplica también a todos los giros gratis; cada giro del
+bono reinicia los cinco carretes y deja una pausa para leer el premio.
+Los relojes de sesión/mesa y el contador de
 premio actualizan su propio contenido. La preferencia de movimiento reducido
-del sistema ofrece resultados sin los giros continuos.
+del sistema revela cada carrete progresivamente, sin los giros continuos ni
+resultados instantáneos.
 
 Validación del frontend:
 
@@ -207,6 +211,19 @@ cd frontend
 npm test      # caché de audio, silenciamiento, límites de voces y preferencias
 npm run build
 ```
+
+Las pruebas de navegador cubren giros consecutivos, bonos, autoplay en StrictMode,
+respuestas lentas, errores de red, movimiento reducido y tamaños de pantalla.
+Usan respuestas de API simuladas y no necesitan una base de datos:
+
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:games
+```
+
+Para usar un Chromium ya instalado, define `PLAYWRIGHT_CHROMIUM_EXECUTABLE` con
+la ruta al ejecutable.
 
 ## Qué falta (siguientes pasos)
 

@@ -7,6 +7,7 @@ import './styles/global.css';
 import './styles/ux.css';
 import './styles/presentation.css';
 import './styles/game-motion.css';
+import './styles/slots.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

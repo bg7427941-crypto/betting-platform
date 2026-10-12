@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import * as sound from '../lib/sound';
 import { useReducedMotion } from '../lib/useReducedMotion';
+import { planReelLanding, REEL_CYCLE_ROWS, REEL_TRACK_ROWS, SLOT_RHYTHMS } from '../lib/slotMotion';
+import { SlotArtwork, SlotSymbol } from './SlotArtwork';
 
-// Debe reflejar EXACTAMENTE las 10 líneas de src/modules/casino/games.engine.js
-// (fila por carril, 0 = arriba, 2 = abajo) — es lo que permite dibujar la línea
-// ganadora en el lugar correcto sin que el backend tenga que mandar coordenadas.
+// Matches the ten server paylines: row per reel, top to bottom.
 const PAYLINES = [
   [1, 1, 1, 1, 1],
   [0, 0, 0, 0, 0],
@@ -17,32 +17,11 @@ const PAYLINES = [
   [1, 2, 2, 2, 1],
   [0, 1, 1, 1, 0],
 ];
-
-const REELS = 5;
-const ROWS = 3;
-const CELL_W = 64;
-const CELL_H = 58;
-const GAP = 6;
-const GRID_W = REELS * CELL_W + (REELS - 1) * GAP;
-const GRID_H = ROWS * CELL_H + (ROWS - 1) * GAP;
-
-function cellCenter(reel, row) {
-  return [reel * (CELL_W + GAP) + CELL_W / 2, row * (CELL_H + GAP) + CELL_H / 2];
-}
-
-const REEL_SYMBOLS = ['7️⃣', '👑', '💎', '⭐', '♠️'];
-const PLACEHOLDER_GRID = Array.from({ length: REELS }, (_, reel) =>
-  Array.from({ length: ROWS }, (_, row) => REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length])
+const REEL_SYMBOLS = ['7️⃣', '👑', '💎', '⭐', '🔔', '♠️'];
+const PLACEHOLDER_GRID = Array.from({ length: 5 }, (_, reel) =>
+  Array.from({ length: 3 }, (_, row) => REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length])
 );
-
-// Cascada de frenado izquierda-a-derecha, un carril a la vez — se dispara
-// cuando llega el resultado, no desde que arrancó a girar (así no importa
-// cuánto tarde la red). En modo turbo se comprime a una fracción.
-const STOP_DELAYS = [350, 650, 950, 1250, 1550];
-const STOP_DELAYS_TURBO = STOP_DELAYS.map((d) => Math.round(d * 0.28));
-const SETTLE_GRACE_MS = 250;
-const SETTLE_GRACE_MS_TURBO = 90;
-
+const reelTransform = (rows) => `translateY(-${(rows / REEL_TRACK_ROWS) * 100}%)`;
 export const SLOT_PAYTABLE = [
   { symbol: '7️⃣', values: '23.5 · 70 · 235 ×' },
   { symbol: '👑', values: '12 · 35 · 120 ×' },
@@ -62,186 +41,242 @@ export const SLOT_PAYTABLE = [
   },
 ];
 
-/**
- * spinning: true desde que se pide el giro hasta que termina la animación
- * (carretes en movimiento mientras no hay `result` todavía — igual que RouletteWheel
- * con `winningNumber`). result: { grid, winningLines, scatterCount } — al
- * llegar dispara la cascada de frenado carril por carril. onSettled: se
- * llama cuando termina esa cascada (recién ahí el padre revela el payout).
- * crownedReels: índices de carril ya coronados (comodín fijo) durante el
- * bono "Corona Ascendente" — se pintan con marco dorado persistente aunque
- * ese giro puntual no forme línea ganadora en ellos. newlyCrowned: los que
- * se coronaron justo en ESTE giro, para el destello de coronación.
- */
-export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, newlyCrowned }) {
-  const [displayGrid, setDisplayGrid] = useState(PLACEHOLDER_GRID);
-  const [stoppedReels, setStoppedReels] = useState(0);
-  const [showLines, setShowLines] = useState(false);
-  const timers = useRef([]);
-  const reducedMotion = useReducedMotion();
-  const settledCallback = useRef(onSettled);
+function SlotReel({
+  reel,
+  spinning,
+  result,
+  display,
+  turbo,
+  reducedMotion,
+  artworkId,
+  hitCells,
+  scatter,
+  onStopped,
+}) {
+  const viewport = useRef(null);
+  const track = useRef(null);
+  const loop = useRef(null);
+  const startedAt = useRef(0);
+  const stoppedCallback = useRef(onStopped);
+  const [phase, setPhase] = useState('idle');
+  const base = useRef(
+    Array.from(
+      { length: REEL_TRACK_ROWS },
+      (_, row) => REEL_SYMBOLS[(row + reel) % REEL_SYMBOLS.length]
+    )
+  );
+  const [symbols, setSymbols] = useState(base.current);
+  const rhythm = turbo ? SLOT_RHYTHMS.fast : SLOT_RHYTHMS.normal;
+  stoppedCallback.current = onStopped;
+
   useEffect(() => {
-    settledCallback.current = onSettled;
-  }, [onSettled]);
+    if (!spinning) {
+      setPhase('idle');
+      return;
+    }
+    startedAt.current = performance.now();
+    setSymbols(base.current);
+    setPhase(reducedMotion ? 'pending' : 'rolling');
+    const node = track.current;
+    node.style.transform = reelTransform(0);
+    if (!reducedMotion && node.animate) {
+      loop.current = node.animate(
+        [{ transform: reelTransform(0) }, { transform: reelTransform(REEL_CYCLE_ROWS) }],
+        { duration: rhythm.cycle, iterations: Infinity, easing: 'linear' }
+      );
+    }
+    return () => {
+      loop.current?.cancel();
+      loop.current = null;
+    };
+  }, [spinning, reducedMotion, rhythm]);
 
-  function clearTimers() {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  }
+  useEffect(() => {
+    if (!spinning || !result) return;
+    let disposed = false;
+    let braking;
+    let revealTimer;
+    const finish = () => {
+      if (disposed) return;
+      setPhase('landed');
+      braking?.cancel();
+      track.current.style.transform = reelTransform(0);
+      sound.playReelStop(reel);
+      stoppedCallback.current(reel);
+    };
+    const timer = setTimeout(
+      () => {
+        const node = track.current;
+        const rowHeight = parseFloat(getComputedStyle(viewport.current).height) / 3;
+        if (reducedMotion || !node.animate || !rowHeight) {
+          setPhase('revealing');
+          revealTimer = setTimeout(finish, rhythm.reveal);
+          return;
+        }
+        const transform = getComputedStyle(node).transform;
+        const offset = transform === 'none' ? 0 : -new DOMMatrixReadOnly(transform).m42 / rowHeight;
+        const landing = planReelLanding(offset, rhythm, reel);
+        node.style.transform = reelTransform(landing.from);
+        loop.current?.cancel();
+        const next = [...base.current];
+        result.forEach((symbol, row) => {
+          next[landing.target + row] = symbol;
+        });
+        setSymbols(next);
+        setPhase('braking');
+        braking = node.animate(
+          [
+            { transform: reelTransform(landing.from) },
+            { transform: reelTransform(landing.target) },
+          ],
+          { duration: landing.duration, easing: landing.easing, fill: 'forwards' }
+        );
+        braking.finished.then(finish).catch(() => {});
+      },
+      Math.max(0, rhythm.minimum - (performance.now() - startedAt.current)) +
+        (reducedMotion || !track.current.animate ? reel * rhythm.stagger : 0)
+    );
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      clearTimeout(revealTimer);
+      braking?.cancel();
+    };
+  }, [spinning, result, reel, rhythm, reducedMotion]);
 
-  // Arranca el giro: tiras de símbolos en movimiento, sin resultado todavía.
+  const moving = phase === 'rolling' || phase === 'braking';
+  const visible = phase === 'revealing' ? result : display;
+  return (
+    <div ref={viewport} className="slot-reel" data-phase={phase} aria-hidden={moving || undefined}>
+      <div className="slot-reel-rest">
+        {visible.map((symbol, row) => (
+          <div
+            key={row}
+            className={`slot-cell ${hitCells.has(`${reel}-${row}`) ? 'slot-cell-hit' : ''} ${scatter && symbol === '💰' ? 'slot-cell-scatter' : ''}`}
+            data-symbol={symbol}
+          >
+            <SlotSymbol symbol={symbol} artworkId={artworkId} />
+          </div>
+        ))}
+      </div>
+      <div
+        ref={track}
+        className="slot-reel-track"
+        aria-hidden="true"
+        style={{
+          height: `${(REEL_TRACK_ROWS / 3) * 100}%`,
+          gridTemplateRows: `repeat(${REEL_TRACK_ROWS}, minmax(0, 1fr))`,
+        }}
+      >
+        {symbols.map((symbol, row) => (
+          <div className="slot-reel-tile" key={row}>
+            <SlotSymbol symbol={symbol} artworkId={artworkId} decorative />
+          </div>
+        ))}
+      </div>
+      <div className="slot-reel-shade" aria-hidden="true" />
+    </div>
+  );
+}
+
+export function SlotMachine({ spinning, result, turbo = false, onSettled, artworkId }) {
+  const ownId = useId().replaceAll(':', '');
+  const art = artworkId || `slot-${ownId}`;
+  const [displayGrid, setDisplayGrid] = useState(PLACEHOLDER_GRID);
+  const [stoppedReels, setStoppedReels] = useState(new Set());
+  const [showLines, setShowLines] = useState(false);
+  const settled = useRef(false);
+  const callback = useRef(onSettled);
+  const reducedMotion = useReducedMotion();
+  callback.current = onSettled;
+
   useEffect(() => {
     if (!spinning) return;
-    clearTimers();
+    settled.current = false;
+    setStoppedReels(new Set());
     setShowLines(false);
-    setStoppedReels(0);
-    setDisplayGrid(PLACEHOLDER_GRID);
-    return clearTimers;
   }, [spinning]);
 
-  // Llegó el resultado: dispara la cascada de frenado carril por carril.
   useEffect(() => {
-    if (!result || !spinning) return;
-    clearTimers();
-
-    if (reducedMotion) {
-      const timer = setTimeout(() => {
-        setDisplayGrid(result.grid);
-        setStoppedReels(REELS);
+    if (!spinning || !result || stoppedReels.size !== 5 || settled.current) return;
+    const timer = setTimeout(
+      () => {
+        settled.current = true;
         setShowLines(true);
-        sound.playReelStop(REELS - 1);
-        settledCallback.current?.();
-      }, 120);
-      timers.current.push(timer);
-      return clearTimers;
-    }
+        callback.current?.();
+      },
+      (turbo ? SLOT_RHYTHMS.fast : SLOT_RHYTHMS.normal).grace
+    );
+    return () => clearTimeout(timer);
+  }, [spinning, result, stoppedReels, turbo]);
 
-    const stopDelays = turbo ? STOP_DELAYS_TURBO : STOP_DELAYS;
-    const settleGrace = turbo ? SETTLE_GRACE_MS_TURBO : SETTLE_GRACE_MS;
-
-    stopDelays.forEach((delay, reelIndex) => {
-      const t = setTimeout(() => {
-        setDisplayGrid((prev) => {
-          const next = prev.map((col) => [...col]);
-          next[reelIndex] = result.grid[reelIndex];
-          return next;
-        });
-        setStoppedReels(reelIndex + 1);
-        sound.playReelStop(reelIndex);
-        if (reelIndex === stopDelays.length - 1) {
-          const settleTimer = setTimeout(() => {
-            setShowLines(true);
-            settledCallback.current?.();
-          }, settleGrace);
-          timers.current.push(settleTimer);
-        }
-      }, delay);
-      timers.current.push(t);
-    });
-
-    return clearTimers;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, turbo, spinning, reducedMotion]);
-
-  useEffect(() => clearTimers, []);
-
-  const winningLines = result?.winningLines;
-  const scatterCount = result?.scatterCount ?? 0;
-
+  function stopReel(reel) {
+    setDisplayGrid((previous) =>
+      previous.map((column, index) => (index === reel ? result.grid[reel] : column))
+    );
+    setStoppedReels((previous) => new Set([...previous, reel]));
+  }
   const hitCells = new Set();
-  if (showLines && winningLines) {
-    for (const wl of winningLines) {
-      const pattern = PAYLINES[wl.line];
-      for (let reel = 0; reel < wl.length; reel += 1) {
-        hitCells.add(`${reel}-${pattern[reel]}`);
-      }
+  if (showLines) {
+    for (const line of result?.winningLines || []) {
+      for (let reel = 0; reel < line.length; reel++)
+        hitCells.add(`${reel}-${PAYLINES[line.line][reel]}`);
     }
   }
-  const hasScatterHighlight = showLines && scatterCount >= 3;
-
-  // Un carril solo se pinta "coronado" una vez que ese carril terminó de
-  // frenar (si no, se ve el marco dorado saltando a un carril que todavía
-  // está girando en blur, antes de que el jugador viera caer el scatter).
-  const crownedSet = new Set(
-    (crownedReels || []).filter((reel) => reel < stoppedReels || !spinning)
-  );
-  const newlyCrownedSet = new Set(showLines ? newlyCrowned || [] : []);
 
   return (
-    <div className="slot-grid-frame">
-      {crownedReels && crownedReels.length > 0 && (
-        <div className="slot-crown-row">
-          {Array.from({ length: REELS }).map((_, reel) => (
-            <span
-              key={reel}
-              className={`slot-crown-icon ${crownedSet.has(reel) ? 'crowned' : ''} ${
-                newlyCrownedSet.has(reel) ? 'just-crowned' : ''
-              }`}
-            >
-              👑
-            </span>
-          ))}
-        </div>
-      )}
+    <div
+      className="slot-grid-frame"
+      data-spinning={spinning}
+      aria-label="Carretes de Corona Real"
+      aria-busy={spinning}
+    >
+      {!artworkId && <SlotArtwork id={art} />}
       <div className="slot-grid">
-        {Array.from({ length: REELS }).flatMap((_, reel) =>
-          Array.from({ length: ROWS }).map((__, row) => {
-            const symbol = displayGrid[reel][row];
-            const isSpinningCell = spinning && reel >= stoppedReels;
-            const isHit = hitCells.has(`${reel}-${row}`);
-            const isScatterCell = hasScatterHighlight && symbol === '💰';
-            const isCrownedCell = crownedSet.has(reel) && !isSpinningCell;
-            return (
-              <div
-                key={`${reel}-${row}`}
-                className={`slot-cell ${isHit ? 'slot-cell-hit' : ''} ${
-                  isScatterCell ? 'slot-cell-scatter' : ''
-                } ${isCrownedCell ? 'slot-cell-crowned' : ''}`}
-                style={{ gridColumn: reel + 1, gridRow: row + 1 }}
-              >
-                {isSpinningCell && !reducedMotion ? (
-                  <span className={`slot-reel-strip${turbo ? ' is-turbo' : ''}`} aria-hidden="true">
-                    <span>{REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length]}</span>
-                    <span>{REEL_SYMBOLS[(reel + row + 1) % REEL_SYMBOLS.length]}</span>
-                    <span>{REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length]}</span>
-                  </span>
-                ) : (
-                  <span className="reel-symbol">{symbol}</span>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {showLines && winningLines && winningLines.length > 0 && (
-        <svg
-          className="slot-lines-overlay"
-          width={GRID_W}
-          height={GRID_H}
-          viewBox={`0 0 ${GRID_W} ${GRID_H}`}
-        >
-          {winningLines.map((wl, i) => {
-            const pattern = PAYLINES[wl.line];
-            const points = Array.from({ length: wl.length }, (_, reel) =>
-              cellCenter(reel, pattern[reel])
-            );
-            const pointsAttr = points.map(([x, y]) => `${x},${y}`).join(' ');
-            return (
+        {displayGrid.map((display, reel) => (
+          <SlotReel
+            key={reel}
+            reel={reel}
+            display={display}
+            spinning={spinning}
+            result={result?.grid?.[reel]}
+            turbo={turbo}
+            reducedMotion={reducedMotion}
+            artworkId={art}
+            hitCells={hitCells}
+            scatter={showLines && result?.scatterCount >= 3}
+            onStopped={stopReel}
+          />
+        ))}
+        {showLines && result?.winningLines?.length > 0 && (
+          <svg
+            className="slot-lines-overlay"
+            viewBox="0 0 500 300"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {result.winningLines.map((line, index) => (
               <polyline
-                key={i}
-                points={pointsAttr}
+                key={index}
+                points={Array.from(
+                  { length: line.length },
+                  (_, reel) => `${reel * 100 + 50},${PAYLINES[line.line][reel] * 100 + 50}`
+                ).join(' ')}
                 fill="none"
-                stroke="var(--gold)"
-                strokeWidth="4"
+                stroke="#c09849"
+                strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity="0.85"
               />
-            );
-          })}
-        </svg>
-      )}
+            ))}
+          </svg>
+        )}
+      </div>
+      <div className="slot-reel-markers" aria-hidden="true">
+        <span>10</span>
+        <span>LÍNEAS DE PAGO</span>
+        <span>10</span>
+      </div>
     </div>
   );
 }

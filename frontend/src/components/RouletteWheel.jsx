@@ -39,10 +39,9 @@ const RIM_R = 150;
 const BALL_TRACK_RADIUS = 137;
 const BALL_LANDED_RADIUS = NUMBER_R;
 
-const MIN_SPIN_MS = 500;
-const SETTLE_MS = 2800;
-const WHEEL_PERIOD_MS = 1400;
-const BALL_PERIOD_MS = 900;
+const MIN_SPIN_MS = 900;
+const WHEEL_PERIOD_MS = 1600;
+const BALL_PERIOD_MS = 1100;
 const modulo = (angle) => ((angle % 360) + 360) % 360;
 
 function rotationOf(element) {
@@ -151,7 +150,14 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     const hasResult = pocketIndex >= 0;
     const targetAngle = hasResult ? 360 - (pocketIndex * SLICE_ANGLE + SLICE_ANGLE / 2) : 0;
     if (reducedMotion || !wheelNode.animate) {
-      if (hasResult) timers.push(setTimeout(() => finish(targetAngle), 120));
+      if (hasResult) {
+        timers.push(
+          setTimeout(
+            () => finish(targetAngle),
+            Math.max(0, MIN_SPIN_MS - (performance.now() - startedAt.current)) + 500
+          )
+        );
+      }
     } else {
       const wheelSpin = animate(
         wheelNode,
@@ -182,11 +188,15 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
               ballNode.style.transform = `rotate(${ballFrom}deg)`;
               wheelSpin.cancel();
               ballSpin.cancel();
-              const wheelTo = wheelFrom + 360 * 3 + modulo(targetAngle - wheelFrom);
-              const ballTo = ballFrom - 360 * 2 - modulo(ballFrom);
+              const wheelTo = wheelFrom + 360 + modulo(targetAngle - wheelFrom);
+              // The easing starts at 1.6× its average speed. Match that speed
+              // to the continuous loop so braking never accelerates the wheel.
+              const settleMs = ((wheelTo - wheelFrom) / 360) * WHEEL_PERIOD_MS * 1.6;
+              const ballTurns = Math.max(1, Math.floor(settleMs / BALL_PERIOD_MS / 1.6));
+              const ballTo = ballFrom - 360 * ballTurns - modulo(ballFrom);
               const options = {
-                duration: SETTLE_MS,
-                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                duration: settleMs,
+                easing: 'cubic-bezier(0.25, 0.4, 0.4, 1)',
                 fill: 'forwards',
               };
               const braking = animate(
@@ -197,7 +207,10 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
               animate(
                 ballNode,
                 [{ transform: `rotate(${ballFrom}deg)` }, { transform: `rotate(${ballTo}deg)` }],
-                options
+                {
+                  ...options,
+                  easing: `cubic-bezier(0.25, ${(settleMs * 360 * 0.25) / BALL_PERIOD_MS / (ballFrom - ballTo)}, 0.4, 1)`,
+                }
               );
               animate(
                 radialNode,
@@ -206,14 +219,14 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
                   { transform: `translateY(-${BALL_LANDED_RADIUS}px)` },
                 ],
                 {
-                  duration: SETTLE_MS * 0.45,
-                  delay: SETTLE_MS * 0.55,
+                  duration: settleMs * 0.45,
+                  delay: settleMs * 0.55,
                   easing: 'ease-in-out',
                   fill: 'forwards',
                 }
               );
-              for (const delay of [80, 190, 330, 510, 740, 1020, 1380, 1850, 2400])
-                timers.push(setTimeout(sound.playBallTick, delay));
+              for (const portion of [0.03, 0.08, 0.14, 0.22, 0.32, 0.45, 0.61, 0.8, 0.94])
+                timers.push(setTimeout(sound.playBallTick, portion * settleMs));
               braking.finished.then(() => finish(wheelTo)).catch(() => {});
             },
             Math.max(0, MIN_SPIN_MS - (performance.now() - startedAt.current))
