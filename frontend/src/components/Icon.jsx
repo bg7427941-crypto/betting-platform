@@ -1,4 +1,17 @@
 const paths = {
+  sound: (
+    <>
+      <path d="M11 4 6 8H3v8h3l5 4V4Z" />
+      <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
+    </>
+  ),
+  muted: (
+    <>
+      <path d="M11 4 6 8H3v8h3l5 4V4Z" />
+      <path d="m16 9 5 6m0-6-5 6" />
+    </>
+  ),
+  play: <path d="m8 5 11 7-11 7V5Z" />,
   sports: (
     <>
       <circle cx="12" cy="12" r="9" />

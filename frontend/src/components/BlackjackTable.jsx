@@ -78,7 +78,9 @@ function PlayerHand({ hand, index, total, finished }) {
       </div>
       <CardRow cards={hand.cards} />
       {finished && hand.resultOutcome && (
-        <p className={`bj-hand-result mono ${hand.payoutCents > 0 ? 'text-gold bj-win-glow' : 'text-brick'}`}>
+        <p
+          className={`bj-hand-result mono ${hand.payoutCents > 0 ? 'text-gold bj-win-glow' : 'text-brick'}`}
+        >
           {OUTCOME_LABEL[hand.resultOutcome] || hand.resultOutcome}
           {hand.payoutCents > 0 ? ` · +${formatCents(hand.payoutCents)}` : ''}
         </p>
@@ -92,7 +94,11 @@ function ShuffleAnimation() {
     <div className="bj-shuffle">
       <div className="bj-shuffle-cards">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="bj-card bj-card-back bj-shuffle-card" style={{ animationDelay: `${i * 0.06}s` }} />
+          <div
+            key={i}
+            className="bj-card bj-card-back bj-shuffle-card"
+            style={{ animationDelay: `${i * 0.06}s` }}
+          />
         ))}
       </div>
       <p className="bj-shuffle-label mono">Barajando el zapato…</p>
@@ -111,6 +117,17 @@ export default function BlackjackTable({ onRoundSettled }) {
   const [shuffling, setShuffling] = useState(false);
   const [muted, setMutedState] = useState(sound.isMuted());
   const [streak, setStreak] = useState(() => Number(localStorage.getItem(STREAK_KEY) || 0));
+  const outcomeTimers = useRef([]);
+  const active = useRef(true);
+
+  useEffect(() => sound.subscribe(() => setMutedState(sound.isMuted())), []);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      outcomeTimers.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // Para animar el flip de la carta tapada del dealer sólo cuando la mano
   // se resuelve en vivo (no cuando se recupera ya terminada al montar).
@@ -171,12 +188,13 @@ export default function BlackjackTable({ onRoundSettled }) {
     setLoadingAction(actionName);
     try {
       const { round: updated } = await fn();
+      refresh().catch(() => {});
+      if (!active.current) return;
       setRound(updated);
-      refresh();
       if (actionName !== 'start') sound.playCard();
       if (updated.status === 'finished') {
         onRoundSettled?.(updated.payoutCents - updated.stakeCents);
-        setTimeout(() => settleOutcomeSound(updated), 450);
+        outcomeTimers.current.push(setTimeout(() => settleOutcomeSound(updated), 450));
       }
     } catch (err) {
       setError(err.message);
@@ -195,13 +213,17 @@ export default function BlackjackTable({ onRoundSettled }) {
     sound.playCardShuffle();
     const shuffleWait = new Promise((resolve) => setTimeout(resolve, SHUFFLE_MS));
     try {
-      const [{ round: newRound }] = await Promise.all([api.startBlackjack(stakeCents), shuffleWait]);
+      const [{ round: newRound }] = await Promise.all([
+        api.startBlackjack(stakeCents),
+        shuffleWait,
+      ]);
+      refresh().catch(() => {});
+      if (!active.current) return;
       setRound(newRound);
-      refresh();
       sound.playDealSequence(newRound.dealerCards.length + newRound.hands[0].cards.length);
       if (newRound.status === 'finished') {
         onRoundSettled?.(newRound.payoutCents - newRound.stakeCents);
-        setTimeout(() => settleOutcomeSound(newRound), 550);
+        outcomeTimers.current.push(setTimeout(() => settleOutcomeSound(newRound), 550));
       }
     } catch (err) {
       setError(err.message);
@@ -260,7 +282,8 @@ export default function BlackjackTable({ onRoundSettled }) {
               </button>
             </div>
             <p>
-              Apuesta: <span className="mono text-gold bj-stake-amount">{formatCents(stakeCents)}</span>
+              Apuesta:{' '}
+              <span className="mono text-gold bj-stake-amount">{formatCents(stakeCents)}</span>
             </p>
             <button className="btn" disabled={stakeCents <= 0 || loading} onClick={start}>
               Repartir
@@ -281,7 +304,13 @@ export default function BlackjackTable({ onRoundSettled }) {
 
             <div className="bj-hands">
               {round.hands.map((hand, i) => (
-                <PlayerHand key={i} hand={hand} index={i} total={round.hands.length} finished={finished} />
+                <PlayerHand
+                  key={i}
+                  hand={hand}
+                  index={i}
+                  total={round.hands.length}
+                  finished={finished}
+                />
               ))}
             </div>
 
@@ -289,21 +318,25 @@ export default function BlackjackTable({ onRoundSettled }) {
               <div className="bj-insurance">
                 <p>
                   El dealer muestra as. ¿Tomás <strong>seguro</strong> por{' '}
-                  <span className="mono text-gold">{formatCents(round.insuranceMaxCents)}</span>? Paga 2:1 si el
-                  dealer tiene blackjack.
+                  <span className="mono text-gold">{formatCents(round.insuranceMaxCents)}</span>?
+                  Paga 2:1 si el dealer tiene blackjack.
                 </p>
                 <div className="bj-actions">
                   <button
                     className="btn"
                     disabled={loading || (balanceCents ?? 0) < round.insuranceMaxCents}
-                    onClick={() => runAction(() => api.insuranceBlackjack(round.id, true), 'insurance')}
+                    onClick={() =>
+                      runAction(() => api.insuranceBlackjack(round.id, true), 'insurance')
+                    }
                   >
                     Asegurar
                   </button>
                   <button
                     className="btn-ghost"
                     disabled={loading}
-                    onClick={() => runAction(() => api.insuranceBlackjack(round.id, false), 'insurance')}
+                    onClick={() =>
+                      runAction(() => api.insuranceBlackjack(round.id, false), 'insurance')
+                    }
                   >
                     No, gracias
                   </button>
@@ -313,7 +346,11 @@ export default function BlackjackTable({ onRoundSettled }) {
 
             {inHand && activeHand && (
               <div className="bj-actions">
-                <button className="btn" disabled={loading} onClick={() => runAction(() => api.hitBlackjack(round.id), 'hit')}>
+                <button
+                  className="btn"
+                  disabled={loading}
+                  onClick={() => runAction(() => api.hitBlackjack(round.id), 'hit')}
+                >
                   {loadingAction === 'hit' ? 'Pidiendo…' : 'Pedir'}
                 </button>
                 <button

@@ -28,7 +28,9 @@ function Card({ card, small }) {
   if (!card) return null;
   if (card.hidden) return <div className={`bj-card bj-card-back ${small ? 'bj-card-sm' : ''}`} />;
   return (
-    <div className={`bj-card bj-card-deal ${SUIT_COLOR[card.suit] || ''} ${small ? 'bj-card-sm' : ''}`}>
+    <div
+      className={`bj-card bj-card-deal ${SUIT_COLOR[card.suit] || ''} ${small ? 'bj-card-sm' : ''}`}
+    >
       <span className="bj-card-rank">{card.rank}</span>
       <span className="bj-card-suit">{card.suit}</span>
       <span className="bj-card-rank bj-card-rank-mirror">{card.rank}</span>
@@ -36,19 +38,21 @@ function Card({ card, small }) {
   );
 }
 
-function useCountdown(deadline) {
-  const [remaining, setRemaining] = useState(0);
+function Countdown({ deadline }) {
+  const [remaining, setRemaining] = useState(
+    () => Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) || 0
+  );
   useEffect(() => {
     if (!deadline) {
       setRemaining(0);
       return undefined;
     }
-    const tick = () => setRemaining(Math.max(0, deadline - Date.now()));
+    const tick = () => setRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
     tick();
-    const id = setInterval(tick, 200);
+    const id = setInterval(tick, 250);
     return () => clearInterval(id);
   }, [deadline]);
-  return remaining;
+  return <span> · {remaining}s</span>;
 }
 
 function TableCard({ cfg, onJoin }) {
@@ -56,9 +60,7 @@ function TableCard({ cfg, onJoin }) {
     <div className="live-table-card">
       <div className="live-table-card-head">
         <span className="mono text-gold">{cfg.name}</span>
-        <span className="mono text-sage">
-          hasta {cfg.maxSeats} jugadores
-        </span>
+        <span className="mono text-sage">hasta {cfg.maxSeats} jugadores</span>
       </div>
       <p className="mono">
         Apuesta: {formatCents(cfg.minBetCents)} – {formatCents(cfg.maxBetCents)}
@@ -140,7 +142,7 @@ export default function LiveBlackjack() {
     socket.on('table:error', (msg) => setError(msg));
     socket.on('table:state', (state) => {
       setTable(state);
-      refresh();
+      refresh().catch(() => {});
     });
 
     return () => socket.disconnect();
@@ -169,9 +171,6 @@ export default function LiveBlackjack() {
     }
     prevPhaseRef.current = table.phase;
   }, [table, user]);
-
-  const bettingRemaining = useCountdown(table?.bettingDeadline);
-  const turnRemaining = useCountdown(table?.turnDeadline);
 
   const joinTable = useCallback((tableId, seat) => {
     setError('');
@@ -248,8 +247,8 @@ export default function LiveBlackjack() {
       <div className="bj-felt">
         <div className="bj-felt-legend">
           {PHASE_LABEL[table.phase]}
-          {table.phase === 'betting' && ` · ${Math.ceil(bettingRemaining / 1000)}s`}
-          {table.phase === 'player_turns' && ` · ${Math.ceil(turnRemaining / 1000)}s`}
+          {table.phase === 'betting' && <Countdown deadline={table.bettingDeadline} />}
+          {table.phase === 'player_turns' && <Countdown deadline={table.turnDeadline} />}
         </div>
 
         <div className="bj-hand">
@@ -318,7 +317,9 @@ export default function LiveBlackjack() {
         )}
 
         {seated && table.phase === 'betting' && iBet && (
-          <p className="mono text-sage">Ya apostaste {formatCents(mySeat.betCents)} — esperando a que abra la mano…</p>
+          <p className="mono text-sage">
+            Ya apostaste {formatCents(mySeat.betCents)} — esperando a que abra la mano…
+          </p>
         )}
 
         {myTurn && mySeat && (

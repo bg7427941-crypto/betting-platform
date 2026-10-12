@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
@@ -9,6 +9,8 @@ import BlackjackTable from '../components/BlackjackTable';
 import LiveBlackjack from '../components/LiveBlackjack';
 import * as sound from '../lib/sound';
 import Icon from '../components/Icon';
+import AnimatedAmount from '../components/AnimatedAmount';
+import SoundControls from '../components/SoundControls';
 
 const GAMES = [
   {
@@ -43,29 +45,61 @@ function formatElapsed(totalSeconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function SessionTracker({ netCents }) {
+  const started = useRef(Date.now());
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setElapsedSeconds(Math.floor((Date.now() - started.current) / 1000)),
+      1000
+    );
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="session-tracker">
+      <span>
+        Sesión: <span className="mono">{formatElapsed(elapsedSeconds)}</span>
+      </span>
+      <span>
+        Neto:{' '}
+        <span
+          className={`mono ${netCents > 0 ? 'text-gold' : netCents < 0 ? 'text-brick' : 'text-sage'}`}
+        >
+          {netCents > 0 ? '+' : ''}
+          {formatCents(netCents)}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function Casino() {
   const [tab, setTab] = useState('roulette');
   // Contador de sesión: cuánto tiempo llevás jugando y el neto acumulado
   // (ganado - apostado) desde que entraste a esta pantalla. Vive acá, no en
   // Roulette/Slots, porque esos se re-montan al cambiar de tab (key={tab})
   // y perderían el acumulado; cada uno avisa sus rondas vía onRoundSettled.
-  const sessionStartRef = useRef(Date.now());
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [sessionNetCents, setSessionNetCents] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - sessionStartRef.current) / 1000));
-    }, 1000);
-    return () => clearInterval(id);
+    sound.preloadSounds();
+    const onVisibility = () => {
+      if (document.hidden) sound.stopAllSounds();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      sound.stopAllSounds();
+    };
+  }, []);
+  useEffect(() => () => sound.stopAllSounds(), [tab]);
+
+  const handleRoundSettled = useCallback((netCents) => {
+    setSessionNetCents((prev) => prev + netCents);
   }, []);
 
-  function handleRoundSettled(netCents) {
-    setSessionNetCents((prev) => prev + netCents);
-  }
-
   return (
-    <div>
+    <div onPointerDownCapture={sound.unlockAudio} onKeyDownCapture={sound.unlockAudio}>
       <div className="page-heading">
         <div>
           <span className="eyebrow">ELIGE TU MESA</span>
@@ -75,21 +109,9 @@ export default function Casino() {
         <span className="demo-pill">Modo demo</span>
       </div>
 
-      <div className="session-tracker">
-        <span>
-          Sesión: <span className="mono">{formatElapsed(elapsedSeconds)}</span>
-        </span>
-        <span>
-          Neto:{' '}
-          <span
-            className={`mono ${
-              sessionNetCents > 0 ? 'text-gold' : sessionNetCents < 0 ? 'text-brick' : 'text-sage'
-            }`}
-          >
-            {sessionNetCents > 0 ? '+' : ''}
-            {formatCents(sessionNetCents)}
-          </span>
-        </span>
+      <div className="casino-status-row">
+        <SessionTracker netCents={sessionNetCents} />
+        <SoundControls />
       </div>
 
       <div className="casino-tabs" role="group" aria-label="Seleccionar juego">
@@ -361,7 +383,6 @@ function Slots({ onRoundSettled }) {
   const [bonusIntroVisible, setBonusIntroVisible] = useState(false);
   const [bonusOutroVisible, setBonusOutroVisible] = useState(false);
   const [bonusOutroTotalCents, setBonusOutroTotalCents] = useState(0);
-  const [bonusOutroDisplayCents, setBonusOutroDisplayCents] = useState(0);
   const stakeAtBonusStart = useRef(0);
   const bonusTimers = useRef([]);
   const bonusIntroTimer = useRef(null);
@@ -375,27 +396,6 @@ function Slots({ onRoundSettled }) {
   }, []);
 
   useEffect(() => () => bonusTimers.current.forEach(clearTimeout), []);
-
-  // Cuenta el total del bono desde 0 hasta el monto final, en vez de
-  // mostrarlo ya calculado — es lo que hace que el cierre se sienta como
-  // un resultado, no como un dato que ya estaba ahí.
-  useEffect(() => {
-    if (!bonusOutroVisible) {
-      setBonusOutroDisplayCents(0);
-      return;
-    }
-    const durationMs = turbo ? 500 : 1100;
-    const startTime = performance.now();
-    let frame;
-    function tick(now) {
-      const t = Math.min(1, (now - startTime) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3); // ease-out cúbico
-      setBonusOutroDisplayCents(Math.round(bonusOutroTotalCents * eased));
-      if (t < 1) frame = requestAnimationFrame(tick);
-    }
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [bonusOutroVisible, bonusOutroTotalCents, turbo]);
 
   const anteTiers = slotsConfig?.anteTiers || DEFAULT_ANTE_TIERS;
   const buyBonusMultiplier = slotsConfig?.buyBonusCostMultiplier ?? DEFAULT_BUY_BONUS_MULTIPLIER;
@@ -417,7 +417,7 @@ function Slots({ onRoundSettled }) {
         ante_tier: buyBonus ? 'none' : anteTier,
       });
       setPendingRound(newRound);
-      await refresh();
+      await refresh().catch(() => {});
     } catch (err) {
       setError(err.message);
       setSpinning(false);
@@ -659,7 +659,7 @@ function Slots({ onRoundSettled }) {
           <div className="slot-bonus-outro-overlay">
             <div className="slot-bonus-outro-kicker">Bono terminado</div>
             <div className="slot-bonus-outro-amount mono">
-              {formatCents(bonusOutroDisplayCents)}
+              <AnimatedAmount cents={bonusOutroTotalCents} duration={turbo ? 500 : 1100} />
             </div>
             <button className="btn slot-bonus-outro-continue" onClick={finishBonusOutro}>
               Continuar

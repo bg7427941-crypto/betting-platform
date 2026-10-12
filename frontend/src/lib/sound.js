@@ -1,114 +1,251 @@
-// Efectos de sonido con muestras reales — nada sintetizado. Los archivos
-// vienen de los packs "Casino Audio", "Music Jingles" e "Impact Sounds" de
-// Kenney Vleugels (kenney.nl), licencia CC0 (ver /public/sfx/CREDITS.txt).
-// Todo vive en /public/sfx, así que Vite lo sirve tal cual en /sfx/*.mp3.
-
+// Short CC0 recordings, decoded once and mixed through a shared Web Audio graph.
+// See public/sfx/CREDITS.txt for the sources and processing.
 const MUTE_KEY = 'bj-sound-muted';
+const VOLUME_KEY = 'casino-sound-volume';
+const MAX_VOICES = 12;
+const FILES = [
+  'card-deal-1.mp3',
+  'card-deal-2.mp3',
+  'card-deal-3.mp3',
+  'card-flip.mp3',
+  'card-shuffle.mp3',
+  'chip-lay-1.mp3',
+  'chip-lay-2.mp3',
+  'chip-lay-3.mp3',
+  'chip-stack.mp3',
+  'ball-tick-1.mp3',
+  'ball-tick-2.mp3',
+  'ball-land.mp3',
+  'reel-stop-1.mp3',
+  'reel-stop-2.mp3',
+  'reel-stop-3.mp3',
+  'win.mp3',
+  'big-win.mp3',
+  'lose.mp3',
+  'push.mp3',
+];
+function readPreference(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function savePreference(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+function normalizedVolume(value) {
+  const number = value === null ? 0.55 : Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0.55;
+}
+let muted = readPreference(MUTE_KEY) === '1';
+let volume = normalizedVolume(readPreference(VOLUME_KEY));
+let context;
+let master;
+let resumePromise;
+let unlocked = false;
+let generation = 0;
+let lastTick = -Infinity;
+const buffers = new Map();
+const voices = new Set();
+const listeners = new Set();
+const notify = () => listeners.forEach((listener) => listener());
 
 export function isMuted() {
-  return typeof window !== 'undefined' && localStorage.getItem(MUTE_KEY) === '1';
+  return muted;
+}
+export function getVolume() {
+  return volume;
+}
+export function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
-export function setMuted(muted) {
-  if (typeof window !== 'undefined') localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
-}
-
-// Cache de elementos <audio> por archivo — evita recrear el objeto en cada
-// reproducción. Cada reproducción clona el nodo (audio.cloneNode) para que
-// dos sonidos superpuestos (ej. varias cartas repartiéndose en cascada) no
-// se corten entre sí, algo que un único <audio> reusado sí haría.
-const cache = new Map();
-function getAudio(file) {
-  let base = cache.get(file);
-  if (!base) {
-    base = new Audio(`/sfx/${file}`);
-    base.preload = 'auto';
-    cache.set(file, base);
+function getContext() {
+  if (context) return context;
+  if (typeof window === 'undefined') return null;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  try {
+    context = new AudioContext({ latencyHint: 'interactive' });
+    master = context.createGain();
+    master.gain.value = volume;
+    master.connect(context.destination);
+    return context;
+  } catch {
+    return null;
   }
-  return base;
 }
 
-function play(file, { volume = 1, delay = 0 } = {}) {
-  if (isMuted()) return;
-  const fire = () => {
-    const base = getAudio(file);
-    const node = base.cloneNode();
-    node.volume = volume;
-    node.play().catch(() => {}); // el navegador puede bloquear el primer intento sin gesto del usuario
-  };
-  if (delay > 0) setTimeout(fire, delay * 1000);
-  else fire();
+// Call synchronously from a user gesture; never resume audio automatically.
+export function unlockAudio() {
+  if (muted || (typeof document !== 'undefined' && document.hidden)) return;
+  const ctx = getContext();
+  if (ctx) unlocked = true;
+  if (ctx?.state === 'suspended' && !resumePromise) {
+    resumePromise = ctx
+      .resume()
+      .catch(() => {})
+      .finally(() => {
+        resumePromise = null;
+      });
+  }
 }
 
-function pick(files) {
-  return files[Math.floor(Math.random() * files.length)];
+function disposeVoice(voice) {
+  voices.delete(voice);
+  try {
+    voice.source.stop();
+  } catch {}
+  voice.source.disconnect();
+  voice.gain.disconnect();
 }
 
+export function stopAllSounds() {
+  generation++;
+  lastTick = -Infinity;
+  for (const voice of voices) disposeVoice(voice);
+}
+
+export function setMuted(value) {
+  muted = Boolean(value);
+  savePreference(MUTE_KEY, muted ? '1' : '0');
+  if (muted) stopAllSounds();
+  else unlockAudio();
+  notify();
+}
+
+export function setVolume(value) {
+  if (!Number.isFinite(Number(value))) return;
+  volume = normalizedVolume(value);
+  savePreference(VOLUME_KEY, String(volume));
+  if (master) master.gain.setTargetAtTime(volume, context.currentTime, 0.02);
+  if (volume === 0) stopAllSounds();
+  notify();
+}
+
+if (typeof window !== 'undefined')
+  window.addEventListener('storage', (event) => {
+    if (event.key === MUTE_KEY) {
+      muted = event.newValue === '1';
+      if (muted) stopAllSounds();
+      notify();
+    }
+    if (event.key === VOLUME_KEY) {
+      volume = normalizedVolume(event.newValue);
+      if (master) master.gain.setTargetAtTime(volume, context.currentTime, 0.02);
+      if (volume === 0) stopAllSounds();
+      notify();
+    }
+  });
+
+function loadBuffer(file) {
+  if (buffers.has(file)) return buffers.get(file);
+  const ctx = getContext();
+  if (!ctx) return Promise.resolve(null);
+  const pending = fetch(`/sfx/${file}`)
+    .then((response) => {
+      if (!response.ok) throw new Error('Audio unavailable');
+      return response.arrayBuffer();
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .catch(() => null);
+  buffers.set(file, pending);
+  return pending;
+}
+
+export function preloadSounds() {
+  return Promise.all(FILES.map(loadBuffer));
+}
+
+function play(file, { volume: level = 0.7, delay = 0, rate = 1 } = {}) {
+  if (!unlocked || muted || volume === 0 || (typeof document !== 'undefined' && document.hidden))
+    return;
+  const ctx = getContext();
+  if (!ctx || (ctx.state !== 'running' && !resumePromise)) return;
+  const version = generation;
+  const requested = performance.now();
+  const when = ctx.currentTime + delay;
+  Promise.all([loadBuffer(file), resumePromise])
+    .then(([buffer]) => {
+      if (
+        !buffer ||
+        version !== generation ||
+        muted ||
+        volume === 0 ||
+        ctx.state !== 'running' ||
+        performance.now() - requested > 500 ||
+        (typeof document !== 'undefined' && document.hidden)
+      )
+        return;
+      if (voices.size >= MAX_VOICES) disposeVoice(voices.values().next().value);
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      source.buffer = buffer;
+      source.playbackRate.value = rate;
+      gain.gain.value = level;
+      source.connect(gain);
+      gain.connect(master);
+      const voice = { source, gain };
+      source.onended = () => {
+        voices.delete(voice);
+        source.disconnect();
+        gain.disconnect();
+      };
+      voices.add(voice);
+      source.start(Math.max(ctx.currentTime, when));
+    })
+    .catch(() => {});
+}
+
+const pick = (files) => files[Math.floor(Math.random() * files.length)];
 const CARD_DEALS = ['card-deal-1.mp3', 'card-deal-2.mp3', 'card-deal-3.mp3'];
 const CHIP_LAYS = ['chip-lay-1.mp3', 'chip-lay-2.mp3', 'chip-lay-3.mp3'];
 const REEL_STOPS = ['reel-stop-1.mp3', 'reel-stop-2.mp3', 'reel-stop-3.mp3'];
 const BALL_TICKS = ['ball-tick-1.mp3', 'ball-tick-2.mp3'];
 
-// ---------- genéricos (usados por blackjack, ruleta y slots) ----------
-
 export function playChip() {
-  play(pick(CHIP_LAYS), { volume: 0.7 });
+  play(pick(CHIP_LAYS), { volume: 0.65 });
 }
-
 export function playChipStack() {
-  play('chip-stack.mp3', { volume: 0.7 });
+  play('chip-stack.mp3', { volume: 0.65 });
 }
-
 export function playCard(delay = 0) {
-  play(pick(CARD_DEALS), { volume: 0.8, delay });
+  play(pick(CARD_DEALS), { volume: 0.65, delay });
 }
-
-export function playDealSequence(count, stagger = 0.14) {
-  for (let i = 0; i < count; i += 1) playCard(i * stagger);
+export function playDealSequence(count, stagger = 0.12) {
+  for (let index = 0; index < count; index++) playCard(index * stagger);
 }
-
 export function playCardFlip() {
-  play('card-flip.mp3', { volume: 0.85 });
+  play('card-flip.mp3', { volume: 0.65 });
 }
-
 export function playCardShuffle() {
-  play('card-shuffle.mp3', { volume: 0.6 });
+  play('card-shuffle.mp3', { volume: 0.45 });
 }
-
-// OJO: los sonidos de ganar y perder están intercambiados a propósito —
-// al ganar suena lose.mp3 y al perder suena win.mp3. Los volúmenes se quedan
-// con el evento (ganar 0.8, perder 0.6), no con el archivo.
 export function playWin() {
-  play('win.mp3', { volume: 0.8 });
+  play('win.mp3', { volume: 0.65 });
 }
-
 export function playBlackjack() {
-  play('big-win.mp3', { volume: 0.85 });
+  play('big-win.mp3', { volume: 0.7 });
 }
-
 export function playLose() {
-  play('lose.mp3', { volume: 0.6 });
+  play('lose.mp3', { volume: 0.35 });
 }
-
 export function playPush() {
-  play('push.mp3', { volume: 0.6 });
+  play('push.mp3', { volume: 0.4 });
 }
-
-// ---------- ruleta ----------
-
-/** Un clic de la bolita rebotando en la pista — se llama en cada "tick" visual. */
 export function playBallTick() {
-  play(pick(BALL_TICKS), { volume: 0.45 });
+  const now = performance.now();
+  if (now - lastTick < 75) return;
+  lastTick = now;
+  play(pick(BALL_TICKS), { volume: 0.3 });
 }
-
-/** El clunk de la bolita cayendo en la casilla — reusa el golpe seco del carrete. */
 export function playBallLand() {
-  play(REEL_STOPS[0], { volume: 0.7 });
+  play('ball-land.mp3', { volume: 0.55 });
 }
-
-// ---------- tragamonedas ----------
-
-/** Un carrete deteniéndose — el clunk mecánico clásico. */
 export function playReelStop(index = 0) {
-  play(REEL_STOPS[index % REEL_STOPS.length], { volume: 0.7 });
+  play(REEL_STOPS[index % REEL_STOPS.length], { volume: 0.55, rate: 1 + index * 0.025 });
 }

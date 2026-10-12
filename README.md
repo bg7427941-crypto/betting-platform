@@ -185,6 +185,29 @@ cp .env.example .env   # apunta VITE_API_URL al backend
 npm run dev             # http://localhost:5173
 ```
 
+## Animaciones y sonido
+
+El casino incluye controles de sonido compartidos para todos los juegos:
+silenciar/activar, volumen y un botón para probarlo. La preferencia se guarda en
+el navegador. El audio se precarga y se decodifica una vez; no comienza hasta
+interactuar con la página y se detiene al salir del casino o cambiar de juego.
+Las grabaciones son CC0; las fuentes, archivos originales y licencias están en
+`frontend/public/sfx/CREDITS.txt`.
+
+La ruleta usa animaciones del navegador para sus capas de rueda y bola, sin
+renderizar el SVG en cada paso del giro. Los carretes usan transformaciones,
+sin filtros de desenfoque animados. Los relojes de sesión/mesa y el contador de
+premio actualizan su propio contenido. La preferencia de movimiento reducido
+del sistema ofrece resultados sin los giros continuos.
+
+Validación del frontend:
+
+```bash
+cd frontend
+npm test      # caché de audio, silenciamiento, límites de voces y preferencias
+npm run build
+```
+
 ## Qué falta (siguientes pasos)
 
 1. **Datos reales de equipos**: las estadísticas de ataque/defensa/Elo se

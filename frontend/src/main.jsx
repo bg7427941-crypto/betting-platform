@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import './styles/global.css';
 import './styles/ux.css';
 import './styles/presentation.css';
+import './styles/game-motion.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as sound from '../lib/sound';
+import { useReducedMotion } from '../lib/useReducedMotion';
 
 // Debe reflejar EXACTAMENTE las 10 líneas de src/modules/casino/games.engine.js
 // (fila por carril, 0 = arriba, 2 = abajo) — es lo que permite dibujar la línea
@@ -29,7 +30,10 @@ function cellCenter(reel, row) {
   return [reel * (CELL_W + GAP) + CELL_W / 2, row * (CELL_H + GAP) + CELL_H / 2];
 }
 
-const PLACEHOLDER_GRID = Array.from({ length: REELS }, () => Array(ROWS).fill('❔'));
+const REEL_SYMBOLS = ['7️⃣', '👑', '💎', '⭐', '♠️'];
+const PLACEHOLDER_GRID = Array.from({ length: REELS }, (_, reel) =>
+  Array.from({ length: ROWS }, (_, row) => REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length])
+);
 
 // Cascada de frenado izquierda-a-derecha, un carril a la vez — se dispara
 // cuando llega el resultado, no desde que arrancó a girar (así no importa
@@ -60,7 +64,7 @@ export const SLOT_PAYTABLE = [
 
 /**
  * spinning: true desde que se pide el giro hasta que termina la animación
- * (blur continuo mientras no hay `result` todavía — igual que RouletteWheel
+ * (carretes en movimiento mientras no hay `result` todavía — igual que RouletteWheel
  * con `winningNumber`). result: { grid, winningLines, scatterCount } — al
  * llegar dispara la cascada de frenado carril por carril. onSettled: se
  * llama cuando termina esa cascada (recién ahí el padre revela el payout).
@@ -74,13 +78,18 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
   const [stoppedReels, setStoppedReels] = useState(0);
   const [showLines, setShowLines] = useState(false);
   const timers = useRef([]);
+  const reducedMotion = useReducedMotion();
+  const settledCallback = useRef(onSettled);
+  useEffect(() => {
+    settledCallback.current = onSettled;
+  }, [onSettled]);
 
   function clearTimers() {
     timers.current.forEach(clearTimeout);
     timers.current = [];
   }
 
-  // Arranca el giro: blur continuo, sin resultado todavía.
+  // Arranca el giro: tiras de símbolos en movimiento, sin resultado todavía.
   useEffect(() => {
     if (!spinning) return;
     clearTimers();
@@ -92,8 +101,20 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
 
   // Llegó el resultado: dispara la cascada de frenado carril por carril.
   useEffect(() => {
-    if (!result) return;
+    if (!result || !spinning) return;
     clearTimers();
+
+    if (reducedMotion) {
+      const timer = setTimeout(() => {
+        setDisplayGrid(result.grid);
+        setStoppedReels(REELS);
+        setShowLines(true);
+        sound.playReelStop(REELS - 1);
+        settledCallback.current?.();
+      }, 120);
+      timers.current.push(timer);
+      return clearTimers;
+    }
 
     const stopDelays = turbo ? STOP_DELAYS_TURBO : STOP_DELAYS;
     const settleGrace = turbo ? SETTLE_GRACE_MS_TURBO : SETTLE_GRACE_MS;
@@ -110,7 +131,7 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
         if (reelIndex === stopDelays.length - 1) {
           const settleTimer = setTimeout(() => {
             setShowLines(true);
-            onSettled && onSettled();
+            settledCallback.current?.();
           }, settleGrace);
           timers.current.push(settleTimer);
         }
@@ -120,7 +141,7 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
 
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, turbo]);
+  }, [result, turbo, spinning, reducedMotion]);
 
   useEffect(() => clearTimers, []);
 
@@ -178,7 +199,15 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
                 } ${isCrownedCell ? 'slot-cell-crowned' : ''}`}
                 style={{ gridColumn: reel + 1, gridRow: row + 1 }}
               >
-                <span className={isSpinningCell ? 'reel-spinning' : 'reel-symbol'}>{symbol}</span>
+                {isSpinningCell && !reducedMotion ? (
+                  <span className={`slot-reel-strip${turbo ? ' is-turbo' : ''}`} aria-hidden="true">
+                    <span>{REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length]}</span>
+                    <span>{REEL_SYMBOLS[(reel + row + 1) % REEL_SYMBOLS.length]}</span>
+                    <span>{REEL_SYMBOLS[(reel + row) % REEL_SYMBOLS.length]}</span>
+                  </span>
+                ) : (
+                  <span className="reel-symbol">{symbol}</span>
+                )}
               </div>
             );
           })

@@ -544,26 +544,6 @@ button {
   border: 1px solid var(--line);
 }
 
-@keyframes reel-blur {
-  0% {
-    transform: translateY(-6px);
-    filter: blur(1.5px);
-  }
-  50% {
-    transform: translateY(6px);
-    filter: blur(1.5px);
-  }
-  100% {
-    transform: translateY(-6px);
-    filter: blur(1.5px);
-  }
-}
-
-.reel-spinning {
-  display: inline-block;
-  animation: reel-blur 0.18s linear infinite;
-}
-
 .reel-symbol {
   display: inline-block;
   animation: reel-settle 0.35s ease-out;
@@ -674,19 +654,18 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--gold-dim);
+  background: var(--gold);
+  box-shadow: 0 0 6px 1px rgba(201, 162, 39, 0.5);
   animation: slot-bulb-chase 1.6s ease-in-out infinite;
 }
 
 @keyframes slot-bulb-chase {
   0%,
   100% {
-    background: var(--gold-dim);
-    box-shadow: none;
+    opacity: 0.3;
   }
   50% {
-    background: var(--gold);
-    box-shadow: 0 0 6px 1px rgba(201, 162, 39, 0.8);
+    opacity: 1;
   }
 }
 

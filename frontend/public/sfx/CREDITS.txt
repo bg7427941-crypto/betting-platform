@@ -1,4 +1,35 @@
-Sonidos de:
-- "Casino Audio", "Music Jingles" e "Impact Sounds" por Kenney Vleugels (www.kenney.nl)
-- Licencia: Creative Commons Zero (CC0) — http://creativecommons.org/publicdomain/zero/1.0/
-- No requiere atribución, pero se agradece.
+Palco — efectos de sonido
+Autor de las grabaciones originales: Kenney Vleugels (https://kenney.nl).
+Licencia: Creative Commons Zero 1.0 (CC0).
+https://creativecommons.org/publicdomain/zero/1.0/
+Uso personal y comercial permitido. No requiere atribución.
+
+Interface Sounds 1.0:
+Original: https://kenney.nl/assets/interface-sounds
+Distribución consultada: https://github.com/Calinou/kenney-interface-sounds
+Commit: 4596a49eaf5a533948d49a47467f606bcdea70ff
+Licencia incluida: LICENSE-interface-sounds.txt
+- card-deal-1/2/3.mp3: scratch_001/002/003.wav
+- card-flip.mp3: scratch_004.wav
+- ball-tick-1/2.mp3: tick_001/004.wav
+- ball-land.mp3: drop_001.wav
+- win.mp3: confirmation_001.wav
+- big-win.mp3: confirmation_004.wav
+- lose.mp3: error_002.wav
+- push.mp3: select_006.wav
+
+UI Audio / UI SFX Set:
+Original: https://kenney.nl/assets/ui-audio
+Distribución consultada: https://github.com/Calinou/kenney-ui-audio
+Commit: 8c3d81b9159d058c444f89d12d518276b0b09345
+Licencia incluida: LICENSE-ui-audio.txt
+- chip-lay-1/2/3.mp3: click1/2/3.wav
+- reel-stop-1/2/3.mp3: switch13/14/12.wav
+
+Casino Audio (grabaciones ya incluidas en el proyecto):
+https://kenney.nl/assets/casino-audio
+- card-shuffle.mp3, chip-stack.mp3
+
+Adaptación para Palco: eliminación del silencio inicial, recorte de colas largas,
+filtro de graves/agudos, ajuste de picos y conversión a MP3 mono de 44.1 kHz.
+La mezcla usa volúmenes individuales y un volumen general ajustable.
