@@ -7,20 +7,27 @@ const WalletContext = createContext(null);
 export function WalletProvider({ children }) {
   const { user } = useAuth();
   const [balanceCents, setBalanceCents] = useState(null);
+  const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const wallet = await api.getWallet();
-    setBalanceCents(wallet.balance_cents);
+    try {
+      const wallet = await api.getWallet();
+      setBalanceCents(Number(wallet.balance_cents));
+      setError('');
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
   }, [user]);
 
   useEffect(() => {
-    if (user) refresh();
+    if (user) refresh().catch(() => {});
     else setBalanceCents(null);
   }, [user, refresh]);
 
   return (
-    <WalletContext.Provider value={{ balanceCents, refresh }}>
+    <WalletContext.Provider value={{ balanceCents, refresh, error }}>
       {children}
     </WalletContext.Provider>
   );

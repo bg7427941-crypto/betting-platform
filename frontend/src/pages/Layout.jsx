@@ -1,26 +1,34 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWallet, formatCents } from '../context/WalletContext';
+import { useTheme } from '../context/ThemeContext';
+import Icon from '../components/Icon';
 
-const THEME_KEY = 'theme';
-
-function getInitialTheme() {
-  const stored = localStorage.getItem(THEME_KEY);
-  if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
+const links = [
+  { to: '/', label: 'Deportes', icon: 'sports' },
+  { to: '/casino', label: 'Casino', icon: 'casino' },
+  { to: '/wallet', label: 'Billetera', icon: 'wallet' },
+];
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { balanceCents } = useWallet();
+  const { balanceCents, error, refresh } = useWallet();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const [theme, setTheme] = useState(getInitialTheme);
+  const location = useLocation();
+  const navigation =
+    user?.role === 'admin'
+      ? [...links, { to: '/admin', label: 'Administración', icon: 'admin' }]
+      : links;
+  const section = navigation.find((link) => link.to === location.pathname)?.label || 'Palco';
+  const name = user?.full_name || user?.email || 'Mi cuenta';
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
+    document.title = `${section} · Palco`;
+    window.scrollTo(0, 0);
+    document.getElementById('main-content')?.focus({ preventScroll: true });
+  }, [location.pathname, section]);
 
   function handleLogout() {
     logout();
@@ -29,60 +37,113 @@ export default function Layout() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">
+        Ir al contenido
+      </a>
       <aside className="sidebar">
-        <div className="brand-row">
-          <div className="brand">Palco</div>
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-            title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-        </div>
-
-        <nav className="nav">
-          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
-            Deportes
-          </NavLink>
-          <NavLink to="/casino" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Casino
-          </NavLink>
-          <NavLink to="/wallet" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Billetera
-          </NavLink>
-          {user?.role === 'admin' && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
-              Admin
+        <Link className="brand sidebar-brand" to="/">
+          palco<span>.</span>
+        </Link>
+        <div className="sidebar-section-label">EXPLORA PALCO</div>
+        <nav
+          className={`nav${user?.role === 'admin' ? ' nav-admin' : ''}`}
+          aria-label="Navegación principal"
+        >
+          {navigation.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.to === '/'}
+              className={({ isActive }) => (isActive ? 'active' : '')}
+            >
+              <Icon name={link.icon} />
+              <span>{link.label}</span>
+              {link.to === '/casino' && <span className="nav-tag">4 juegos</span>}
             </NavLink>
-          )}
+          ))}
         </nav>
-
-        <div className="sidebar-wallet">
-          <div className="label text-sage">{user?.full_name || user?.email}</div>
-          <div className="amount-row">
-            <svg className="chip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="var(--gold)" strokeWidth="1.5" />
-              <circle cx="12" cy="12" r="5.5" stroke="var(--gold)" strokeWidth="1.5" />
-              <path
-                d="M12 2v3.2M12 18.8V22M22 12h-3.2M5.2 12H2M19.07 4.93l-2.26 2.26M7.19 16.81l-2.26 2.26M19.07 19.07l-2.26-2.26M7.19 7.19L4.93 4.93"
-                stroke="var(--gold)"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="amount">{formatCents(balanceCents)}</span>
+        <div className="sidebar-bottom">
+          <div className="sidebar-demo">
+            <Icon name="shield" />
+            <div>
+              <strong>Tu espacio de práctica</strong>
+              <p>
+                Saldo virtual.
+                <br />
+                La experiencia, a tu ritmo.
+              </p>
+            </div>
           </div>
-          <button className="btn-ghost" style={{ marginTop: 14, width: '100%' }} onClick={handleLogout}>
-            Cerrar sesión
+          <div className="sidebar-account">
+            <span className="user-avatar">{name.charAt(0).toUpperCase()}</span>
+            <div>
+              <strong>{name}</strong>
+              <span>{user?.role === 'admin' ? 'Administrador' : 'Cuenta demo'}</span>
+            </div>
+          </div>
+          <button className="logout-button" onClick={handleLogout}>
+            <Icon name="logout" size={18} /> Cerrar sesión
           </button>
         </div>
       </aside>
-
-      <main className="main">
-        <Outlet />
-      </main>
+      <div className="main">
+        <header className="shell-header">
+          <Link className="brand mobile-brand" to="/">
+            palco<span>.</span>
+          </Link>
+          <div className="header-section">
+            <span>PALCO /</span> {section}
+          </div>
+          <div className="header-actions">
+            <Link
+              to="/wallet"
+              className="header-balance"
+              aria-label={`Ir a billetera. Saldo virtual: ${error ? 'no disponible' : formatCents(balanceCents)}`}
+            >
+              <Icon name="wallet" />
+              <div>
+                <span>Saldo virtual</span>
+                <strong>{error ? 'No disponible' : formatCents(balanceCents)}</strong>
+              </div>
+            </Link>
+            <Link to="/wallet" className="btn header-deposit">
+              <Icon name="plus" size={16} /> Agregar saldo
+            </Link>
+            <button
+              className="icon-button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+            </button>
+            <button
+              className="icon-button mobile-logout"
+              onClick={handleLogout}
+              aria-label="Cerrar sesión"
+            >
+              <Icon name="logout" />
+            </button>
+          </div>
+        </header>
+        <main className="page-content" id="main-content" tabIndex={-1}>
+          {error && (
+            <div className="error-banner" role="alert">
+              No pudimos actualizar tu saldo.{' '}
+              <button className="link-btn" onClick={() => refresh().catch(() => {})}>
+                Reintentar
+              </button>
+            </div>
+          )}
+          <Outlet />
+        </main>
+        <footer className="shell-footer">
+          <span className="brand">
+            palco<span>.</span>
+          </span>
+          <span>Modo demo · Todos los saldos son virtuales.</span>
+          <span>18+ · Juega a tu ritmo</span>
+        </footer>
+      </div>
     </div>
   );
 }

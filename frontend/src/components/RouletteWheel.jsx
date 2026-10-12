@@ -3,17 +3,15 @@ import * as sound from '../lib/sound';
 
 // Orden real de los números en una ruleta europea (37 casillas)
 export const WHEEL_ORDER = [
-  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
-  16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14,
+  31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
 ];
 
-const RED_NUMBERS = new Set([
-  1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
-]);
+const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
 function pocketColor(n) {
   if (n === 0) return 'var(--felt-3)';
-  return RED_NUMBERS.has(n) ? 'var(--brick)' : '#141414';
+  return RED_NUMBERS.has(n) ? '#a6483a' : '#202720';
 }
 
 function resultTextColor(n) {
@@ -145,10 +143,13 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       setPhase('settle');
     }, waitBeforeSettling);
 
-    const dropTimer = setTimeout(() => {
-      setRadiusTransitionSeconds(RADIUS_DROP_SECONDS);
-      setBallRadius(BALL_LANDED_RADIUS);
-    }, waitBeforeSettling + SETTLE_MS * RADIUS_DROP_SHARE);
+    const dropTimer = setTimeout(
+      () => {
+        setRadiusTransitionSeconds(RADIUS_DROP_SECONDS);
+        setBallRadius(BALL_LANDED_RADIUS);
+      },
+      waitBeforeSettling + SETTLE_MS * RADIUS_DROP_SHARE
+    );
 
     const doneTimer = setTimeout(() => {
       setLanded(true);
@@ -176,18 +177,18 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
     phase === 'spin'
       ? `transform ${TICK_MS}ms linear`
       : phase === 'settle'
-      ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.16, 1, 0.3, 1)`
-      : 'none';
+        ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.16, 1, 0.3, 1)`
+        : 'none';
 
   const ballRotationTransition =
     phase === 'spin'
       ? `transform ${TICK_MS}ms linear`
       : phase === 'settle'
-      ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.16, 1, 0.3, 1)`
-      : 'none';
+        ? `transform ${SETTLE_SECONDS}s cubic-bezier(0.16, 1, 0.3, 1)`
+        : 'none';
 
   return (
-    <div style={{ position: 'relative', width: SIZE, height: SIZE, margin: '0 auto' }}>
+    <div className="roulette-wheel">
       {/* puntero fijo */}
       <div
         style={{
@@ -205,9 +206,28 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
       />
 
       {/* capa ESTÁTICA: el aro y la pista de la bola no giran, solo la rueda numerada gira debajo */}
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ position: 'absolute', inset: 0 }}>
-        <circle cx={CENTER} cy={CENTER} r={TRACK_MID_R} fill="none" stroke="var(--line)" strokeWidth={TRACK_WIDTH} />
-        <circle cx={CENTER} cy={CENTER} r={RIM_R} fill="none" stroke="var(--gold)" strokeWidth="2" />
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={TRACK_MID_R}
+          fill="none"
+          stroke="var(--line)"
+          strokeWidth={TRACK_WIDTH}
+        />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={RIM_R}
+          fill="none"
+          stroke="var(--gold)"
+          strokeWidth="2"
+        />
         <circle
           cx={CENTER}
           cy={CENTER}
@@ -252,7 +272,7 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
                 dominantBaseline="central"
                 fontSize="11"
                 fontFamily="var(--font-mono)"
-                fill="var(--parchment)"
+                fill="#f3f4eb"
                 stroke="rgba(0,0,0,0.4)"
                 strokeWidth="2"
                 paintOrder="stroke"
@@ -262,7 +282,14 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
             </g>
           );
         })}
-        <circle cx={CENTER} cy={CENTER} r={WEDGE_INNER_R - 2} fill="var(--felt-2)" stroke="var(--gold)" strokeWidth="1.5" />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={WEDGE_INNER_R - 2}
+          fill="var(--felt-2)"
+          stroke="var(--gold)"
+          strokeWidth="1.5"
+        />
       </svg>
 
       {/* bolita: gira independiente en su pista y cae hacia el anillo de números */}
@@ -294,7 +321,10 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
 
       {landed && winningNumber !== null && winningNumber !== undefined && (
         <div className="wheel-result-badge">
-          <span className="mono wheel-result-number" style={{ color: resultTextColor(winningNumber) }}>
+          <span
+            className="mono wheel-result-number"
+            style={{ color: resultTextColor(winningNumber) }}
+          >
             {winningNumber}
           </span>
           <span className="text-sage wheel-result-label">{resultLabel(winningNumber)}</span>

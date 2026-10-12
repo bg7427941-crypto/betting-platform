@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 import { RouletteWheel } from '../components/RouletteWheel';
@@ -7,6 +8,34 @@ import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
 import BlackjackTable from '../components/BlackjackTable';
 import LiveBlackjack from '../components/LiveBlackjack';
 import * as sound from '../lib/sound';
+import Icon from '../components/Icon';
+
+const GAMES = [
+  {
+    id: 'roulette',
+    name: 'Ruleta',
+    description: 'El clásico de la mesa',
+    icon: 'casino',
+  },
+  {
+    id: 'slots',
+    name: 'Tragamonedas',
+    description: 'Cinco carriles, diez líneas',
+    icon: 'admin',
+  },
+  {
+    id: 'blackjack',
+    name: 'Blackjack',
+    description: 'Practica a tu ritmo',
+    icon: 'ticket',
+  },
+  {
+    id: 'live',
+    name: 'Blackjack en vivo',
+    description: 'Comparte mesa en tiempo real',
+    icon: 'live',
+  },
+];
 
 function formatElapsed(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -37,8 +66,14 @@ export default function Casino() {
 
   return (
     <div>
-      <h1 className="page-title">Casino</h1>
-      <p className="page-sub">Ruleta y tragamonedas. Saldo virtual — modo demo.</p>
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">ELIGE TU MESA</span>
+          <h1 className="page-title">Casino</h1>
+          <p className="page-sub">Cuatro experiencias para descubrir. Siempre con saldo virtual.</p>
+        </div>
+        <span className="demo-pill">Modo demo</span>
+      </div>
 
       <div className="session-tracker">
         <span>
@@ -57,22 +92,21 @@ export default function Casino() {
         </span>
       </div>
 
-      <div className="casino-tabs">
-        <button
-          className={tab === 'roulette' ? 'btn' : 'btn-ghost'}
-          onClick={() => setTab('roulette')}
-        >
-          Ruleta
-        </button>
-        <button className={tab === 'slots' ? 'btn' : 'btn-ghost'} onClick={() => setTab('slots')}>
-          Tragamonedas
-        </button>
-        <button className={tab === 'blackjack' ? 'btn' : 'btn-ghost'} onClick={() => setTab('blackjack')}>
-          Blackjack (práctica)
-        </button>
-        <button className={tab === 'live' ? 'btn' : 'btn-ghost'} onClick={() => setTab('live')}>
-          Blackjack en vivo
-        </button>
+      <div className="casino-tabs" role="group" aria-label="Seleccionar juego">
+        {GAMES.map((game) => (
+          <button
+            key={game.id}
+            className={`casino-game-button${tab === game.id ? ' active' : ''}`}
+            aria-pressed={tab === game.id}
+            onClick={() => setTab(game.id)}
+          >
+            <Icon name={game.icon} size={22} />
+            <span>
+              <strong>{game.name}</strong>
+              <small>{game.description}</small>
+            </span>
+          </button>
+        ))}
       </div>
 
       {tab === 'roulette' && (
@@ -100,7 +134,7 @@ export default function Casino() {
 }
 
 function Roulette({ onRoundSettled }) {
-  const { refresh } = useWallet();
+  const { balanceCents, refresh, error: balanceError } = useWallet();
   const [placedBets, setPlacedBets] = useState({}); // { key: { type, value, stakeCents } }
   const [selectedChip, setSelectedChip] = useState(5);
   const [spinning, setSpinning] = useState(false);
@@ -109,6 +143,9 @@ function Roulette({ onRoundSettled }) {
   const [error, setError] = useState('');
 
   const totalStakeCents = Object.values(placedBets).reduce((sum, b) => sum + b.stakeCents, 0);
+  const overBalance = balanceCents !== null && totalStakeCents > balanceCents;
+  const canPlay =
+    !spinning && !balanceError && balanceCents !== null && totalStakeCents > 0 && !overBalance;
 
   function placeChip(key, betShape) {
     setResult(null);
@@ -126,7 +163,7 @@ function Roulette({ onRoundSettled }) {
   }
 
   async function play() {
-    if (totalStakeCents === 0) return;
+    if (!canPlay) return;
     setError('');
     setResult(null);
     setPendingResult(null);
@@ -139,7 +176,7 @@ function Roulette({ onRoundSettled }) {
       }));
       const { round } = await api.playCasino({ game: 'roulette', bets });
       setPendingResult(round);
-      await refresh();
+      await refresh().catch(() => {});
     } catch (err) {
       setError(err.message);
       setSpinning(false);
@@ -159,7 +196,11 @@ function Roulette({ onRoundSettled }) {
 
   return (
     <div className="panel" style={{ maxWidth: 900 }}>
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="error-banner" role="alert">
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
         <RouletteWheel
@@ -168,7 +209,7 @@ function Roulette({ onRoundSettled }) {
           onSettled={handleSettled}
         />
 
-        <div style={{ flex: 1, minWidth: 280 }}>
+        <div className="roulette-summary">
           <div className="text-sage" style={{ fontSize: 13, marginBottom: 4 }}>
             Total en mesa
           </div>
@@ -176,9 +217,18 @@ function Roulette({ onRoundSettled }) {
             {formatCents(totalStakeCents)}
           </div>
 
-          <button className="btn" onClick={play} disabled={spinning || totalStakeCents === 0} style={{ width: '100%' }}>
+          <button className="btn" onClick={play} disabled={!canPlay} style={{ width: '100%' }}>
             {spinning ? 'Girando…' : 'Girar ruleta'}
           </button>
+          {overBalance && !spinning && (
+            <p className="input-note" role="status" style={{ marginTop: 12 }}>
+              El total supera tu saldo de {formatCents(balanceCents)}. Reduce las fichas o{' '}
+              <Link to="/wallet" className="text-gold">
+                agrega saldo virtual
+              </Link>
+              .
+            </p>
+          )}
 
           {result && (
             <div className="result-reveal" style={{ marginTop: 16 }}>
@@ -192,12 +242,16 @@ function Roulette({ onRoundSettled }) {
                     result.outcome.color === 'red'
                       ? 'text-brick'
                       : result.outcome.color === 'black'
-                      ? 'text-sage'
-                      : 'text-gold'
+                        ? 'text-sage'
+                        : 'text-gold'
                   }
                   style={{ textTransform: 'capitalize' }}
                 >
-                  {result.outcome.color === 'red' ? 'rojo' : result.outcome.color === 'black' ? 'negro' : 'verde'}
+                  {result.outcome.color === 'red'
+                    ? 'rojo'
+                    : result.outcome.color === 'black'
+                      ? 'negro'
+                      : 'verde'}
                 </span>
               </div>
               <div style={{ marginTop: 6 }}>
@@ -267,7 +321,12 @@ const DEFAULT_ANTE_TIERS = {
 };
 // Deben coincidir con casino.service.js.
 const DEFAULT_BUY_BONUS_MULTIPLIER = 28;
-const ANTE_LABELS = { none: 'Normal', ante25: '+25%', ante50: '+50%', ante100: '+100%' };
+const ANTE_LABELS = {
+  none: 'Normal',
+  ante25: '+25%',
+  ante50: '+50%',
+  ante100: '+100%',
+};
 
 function Slots({ onRoundSettled }) {
   const { balanceCents, refresh } = useWallet();
@@ -309,7 +368,10 @@ function Slots({ onRoundSettled }) {
   const bonusOutroTimer = useRef(null);
 
   useEffect(() => {
-    api.getSlotsConfig().then(setSlotsConfig).catch(() => {});
+    api
+      .getSlotsConfig()
+      .then(setSlotsConfig)
+      .catch(() => {});
   }, []);
 
   useEffect(() => () => bonusTimers.current.forEach(clearTimeout), []);
@@ -493,7 +555,8 @@ function Slots({ onRoundSettled }) {
     setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
     onRoundSettled &&
       onRoundSettled(pendingRoundRef.current.payout_cents - pendingRoundRef.current.stake_cents);
-    if (pendingRoundRef.current.payout_cents > pendingRoundRef.current.stake_cents) sound.playBlackjack();
+    if (pendingRoundRef.current.payout_cents > pendingRoundRef.current.stake_cents)
+      sound.playBlackjack();
     else sound.playLose();
     continueAutoplayIfNeeded();
   }
@@ -537,7 +600,9 @@ function Slots({ onRoundSettled }) {
         </div>
       )}
 
-      {bonusRetriggerFlash && <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>}
+      {bonusRetriggerFlash && (
+        <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>
+      )}
 
       <div style={{ position: 'relative' }}>
         <SlotMachine
@@ -554,7 +619,10 @@ function Slots({ onRoundSettled }) {
               <span
                 key={i}
                 className="slot-bigwin-sparkle"
-                style={{ left: `${8 + i * 9}%`, animationDelay: `${(i % 5) * 0.15}s` }}
+                style={{
+                  left: `${8 + i * 9}%`,
+                  animationDelay: `${(i % 5) * 0.15}s`,
+                }}
               >
                 {i % 2 === 0 ? '✦' : '✧'}
               </span>
@@ -563,7 +631,9 @@ function Slots({ onRoundSettled }) {
               {multiplier >= 80 ? '¡Premio mayor!' : '¡Gran premio!'}
             </div>
             <div className="slot-bigwin-amount">{formatCents(round.payout_cents)}</div>
-            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>              Continuar
+            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>
+              {' '}
+              Continuar
             </button>
           </div>
         )}
@@ -588,7 +658,9 @@ function Slots({ onRoundSettled }) {
         {bonusOutroVisible && (
           <div className="slot-bonus-outro-overlay">
             <div className="slot-bonus-outro-kicker">Bono terminado</div>
-            <div className="slot-bonus-outro-amount mono">{formatCents(bonusOutroDisplayCents)}</div>
+            <div className="slot-bonus-outro-amount mono">
+              {formatCents(bonusOutroDisplayCents)}
+            </div>
             <button className="btn slot-bonus-outro-continue" onClick={finishBonusOutro}>
               Continuar
             </button>
@@ -631,12 +703,16 @@ function Slots({ onRoundSettled }) {
             Detener ({autoplayRemaining})
           </button>
         ) : (
-          <button className="btn slot-spin-btn" onClick={() => spin()} disabled={spinning || !canAffordNormal}>
+          <button
+            className="btn slot-spin-btn"
+            onClick={() => spin()}
+            disabled={spinning || !canAffordNormal}
+          >
             {bonusActive || bonusIntroVisible || bonusOutroVisible
               ? 'En bono…'
               : spinning
-              ? 'Girando…'
-              : `Girar · ${formatCents(normalCostCents)}`}
+                ? 'Girando…'
+                : `Girar · ${formatCents(normalCostCents)}`}
           </button>
         )}
       </div>
@@ -645,7 +721,9 @@ function Slots({ onRoundSettled }) {
         <div className="slot-autoplay-progress-track">
           <div
             className="slot-autoplay-progress-fill"
-            style={{ width: `${((autoplayTotal - autoplayRemaining) / autoplayTotal) * 100}%` }}
+            style={{
+              width: `${((autoplayTotal - autoplayRemaining) / autoplayTotal) * 100}%`,
+            }}
           />
         </div>
       )}

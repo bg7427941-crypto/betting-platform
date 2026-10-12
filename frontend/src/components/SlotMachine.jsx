@@ -47,10 +47,14 @@ export const SLOT_PAYTABLE = [
   { symbol: '🔔', values: '2.5 · 6 · 17.5 ×' },
   { symbol: '♥️ ♠️', values: '1.4 · 4.2 · 12 ×' },
   { symbol: '♣️ ♦️', values: '1.2 · 3.5 · 9.5 ×' },
-  { symbol: '🃏', values: 'comodín (17.5 · 60 · 175 ×) — sustituye a cualquier símbolo' },
+  {
+    symbol: '🃏',
+    values: 'comodín (17.5 · 60 · 175 ×) — sustituye a cualquier símbolo',
+  },
   {
     symbol: '💰',
-    values: 'en cualquier posición: 25 · 120 · 600 × el total apostado · 3+ activa Corona Ascendente',
+    values:
+      'en cualquier posición: 25 · 120 · 600 × el total apostado · 3+ activa Corona Ascendente',
   },
 ];
 
@@ -137,13 +141,15 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
   // Un carril solo se pinta "coronado" una vez que ese carril terminó de
   // frenar (si no, se ve el marco dorado saltando a un carril que todavía
   // está girando en blur, antes de que el jugador viera caer el scatter).
-  const crownedSet = new Set((crownedReels || []).filter((reel) => reel < stoppedReels || !spinning));
+  const crownedSet = new Set(
+    (crownedReels || []).filter((reel) => reel < stoppedReels || !spinning)
+  );
   const newlyCrownedSet = new Set(showLines ? newlyCrowned || [] : []);
 
   return (
     <div className="slot-grid-frame">
       {crownedReels && crownedReels.length > 0 && (
-        <div className="slot-crown-row" style={{ width: GRID_W }}>
+        <div className="slot-crown-row">
           {Array.from({ length: REELS }).map((_, reel) => (
             <span
               key={reel}
@@ -156,7 +162,7 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
           ))}
         </div>
       )}
-      <div className="slot-grid" style={{ width: GRID_W, height: GRID_H }}>
+      <div className="slot-grid">
         {Array.from({ length: REELS }).flatMap((_, reel) =>
           Array.from({ length: ROWS }).map((__, row) => {
             const symbol = displayGrid[reel][row];
@@ -180,10 +186,17 @@ export function SlotMachine({ spinning, result, turbo, onSettled, crownedReels, 
       </div>
 
       {showLines && winningLines && winningLines.length > 0 && (
-        <svg className="slot-lines-overlay" width={GRID_W} height={GRID_H} viewBox={`0 0 ${GRID_W} ${GRID_H}`}>
+        <svg
+          className="slot-lines-overlay"
+          width={GRID_W}
+          height={GRID_H}
+          viewBox={`0 0 ${GRID_W} ${GRID_H}`}
+        >
           {winningLines.map((wl, i) => {
             const pattern = PAYLINES[wl.line];
-            const points = Array.from({ length: wl.length }, (_, reel) => cellCenter(reel, pattern[reel]));
+            const points = Array.from({ length: wl.length }, (_, reel) =>
+              cellCenter(reel, pattern[reel])
+            );
             const pointsAttr = points.map(([x, y]) => `${x},${y}`).join(' ');
             return (
               <polyline
