@@ -3,6 +3,7 @@ import * as sound from '../lib/sound';
 import { useReducedMotion } from '../lib/useReducedMotion';
 import { planReelLanding, REEL_CYCLE_ROWS, REEL_TRACK_ROWS, SLOT_RHYTHMS } from '../lib/slotMotion';
 import { SlotArtwork, SlotSymbol } from './SlotArtwork';
+import CascadeReel from './CascadeReel';
 
 // Matches the ten server paylines: row per reel, top to bottom.
 const PAYLINES = [
@@ -23,21 +24,20 @@ const PLACEHOLDER_GRID = Array.from({ length: 5 }, (_, reel) =>
 );
 const reelTransform = (rows) => `translateY(-${(rows / REEL_TRACK_ROWS) * 100}%)`;
 export const SLOT_PAYTABLE = [
-  { symbol: '7️⃣', values: '23.5 · 70 · 235 ×' },
-  { symbol: '👑', values: '12 · 35 · 120 ×' },
-  { symbol: '💎', values: '6 · 17.5 · 60 ×' },
-  { symbol: '⭐', values: '3.5 · 9.5 · 23.5 ×' },
-  { symbol: '🔔', values: '2.5 · 6 · 17.5 ×' },
-  { symbol: '♥️ ♠️', values: '1.4 · 4.2 · 12 ×' },
-  { symbol: '♣️ ♦️', values: '1.2 · 3.5 · 9.5 ×' },
+  { symbol: '7️⃣', values: '267 · 794 · 2666 ×' },
+  { symbol: '👑', values: '136 · 398 · 1361 ×' },
+  { symbol: '💎', values: '68 · 199 · 681 ×' },
+  { symbol: '⭐', values: '40 · 108 · 267 ×' },
+  { symbol: '🔔', values: '28 · 68 · 199 ×' },
+  { symbol: '♥️ ♠️', values: '16 · 48 · 136 ×' },
+  { symbol: '♣️ ♦️', values: '13 · 40 · 108 ×' },
   {
     symbol: '🃏',
-    values: 'comodín (17.5 · 60 · 175 ×) — sustituye a cualquier símbolo',
+    values: 'comodín (199 · 681 · 1986 ×) — sustituye a cualquier símbolo de línea',
   },
   {
     symbol: '💰',
-    values:
-      'en cualquier posición: 25 · 120 · 600 × el total apostado · 3+ activa Corona Ascendente',
+    values: '3+ activa giros gratis de Corona Ascendente',
   },
 ];
 
@@ -179,7 +179,14 @@ function SlotReel({
   );
 }
 
-export function SlotMachine({ spinning, result, turbo = false, onSettled, artworkId }) {
+export function SlotMachine({
+  spinning,
+  result,
+  turbo = false,
+  onSettled,
+  artworkId,
+  cascadeFrame,
+}) {
   const ownId = useId().replaceAll(':', '');
   const art = artworkId || `slot-${ownId}`;
   const [displayGrid, setDisplayGrid] = useState(PLACEHOLDER_GRID);
@@ -189,6 +196,13 @@ export function SlotMachine({ spinning, result, turbo = false, onSettled, artwor
   const callback = useRef(onSettled);
   const reducedMotion = useReducedMotion();
   callback.current = onSettled;
+
+  useEffect(() => {
+    if (!spinning && result?.grid) {
+      setDisplayGrid(result.grid);
+      setShowLines(true);
+    }
+  }, [spinning, result]);
 
   useEffect(() => {
     if (!spinning) return;
@@ -217,7 +231,7 @@ export function SlotMachine({ spinning, result, turbo = false, onSettled, artwor
     setStoppedReels((previous) => new Set([...previous, reel]));
   }
   const hitCells = new Set();
-  if (showLines) {
+  if (showLines && !spinning) {
     for (const line of result?.winningLines || []) {
       for (let reel = 0; reel < line.length; reel++)
         hitCells.add(`${reel}-${PAYLINES[line.line][reel]}`);
@@ -233,22 +247,26 @@ export function SlotMachine({ spinning, result, turbo = false, onSettled, artwor
     >
       {!artworkId && <SlotArtwork id={art} />}
       <div className="slot-grid">
-        {displayGrid.map((display, reel) => (
-          <SlotReel
-            key={reel}
-            reel={reel}
-            display={display}
-            spinning={spinning}
-            result={result?.grid?.[reel]}
-            turbo={turbo}
-            reducedMotion={reducedMotion}
-            artworkId={art}
-            hitCells={hitCells}
-            scatter={showLines && result?.scatterCount >= 3}
-            onStopped={stopReel}
-          />
-        ))}
-        {showLines && result?.winningLines?.length > 0 && (
+        {displayGrid.map((display, reel) => {
+          const Reel = cascadeFrame ? CascadeReel : SlotReel;
+          return (
+            <Reel
+              key={reel}
+              reel={reel}
+              display={display}
+              spinning={spinning}
+              result={result?.grid?.[reel]}
+              turbo={turbo}
+              reducedMotion={reducedMotion}
+              artworkId={art}
+              hitCells={hitCells}
+              scatter={showLines && result?.scatterCount >= 3}
+              onStopped={stopReel}
+              frame={cascadeFrame}
+            />
+          );
+        })}
+        {showLines && !spinning && result?.winningLines?.length > 0 && (
           <svg
             className="slot-lines-overlay"
             viewBox="0 0 500 300"

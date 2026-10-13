@@ -213,7 +213,8 @@ npm run build
 ```
 
 Las pruebas de navegador cubren giros consecutivos, bonos, autoplay en StrictMode,
-respuestas lentas, errores de red, movimiento reducido y tamaños de pantalla.
+respuestas lentas, errores de red, movimiento reducido, cascadas, bonos manuales,
+deshacer fichas y las acciones del blackjack, además de tamaños de pantalla.
 Usan respuestas de API simuladas y no necesitan una base de datos:
 
 ```bash
@@ -224,6 +225,28 @@ npm run test:games
 
 Para usar un Chromium ya instalado, define `PLAYWRIGHT_CHROMIUM_EXECUTABLE` con
 la ruta al ejecutable.
+
+Corona Real permite elegir entre Clásico y Cascadas Reales. En cascadas, se retiran
+las posiciones de las líneas ganadoras, los símbolos restantes caen y se rellenan
+los huecos. Las cuatro etapas como máximo pagan sus líneas con multiplicadores
+×1, ×2, ×3 y ×4. Un giro sin líneas ganadoras termina la secuencia; tres o más
+símbolos BONO en cualquiera de las etapas activan un único bono de giros gratis.
+Todo se resuelve en el servidor con una sola apuesta y un pago agregado. Las
+reglas y pagos del modo clásico se mantienen; la calibración histórica de ese
+modo no describe el retorno de la nueva variante de cascadas.
+
+Los giros gratis pueden avanzar automáticamente o con «Siguiente giro gratis».
+«Ver premio total del bono» omite la presentación y muestra el pago ya resuelto;
+no realiza otra apuesta. El historial de la sesión permite consultar los últimos
+ocho giros. La tabla de pagos y las modalidades se obtienen de la configuración
+pública del servidor.
+
+Pruebas del motor de cascadas (gravedad, intersecciones de líneas, pagos,
+activación de bonos, límites de etapas y compatibilidad del modo clásico):
+
+```bash
+npm test
+```
 
 ## Qué falta (siguientes pasos)
 

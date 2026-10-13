@@ -215,6 +215,41 @@ const PAYLINES = [
   [0, 1, 1, 1, 0],
 ];
 
+const CASCADE_MULTIPLIERS = [1, 2, 3, 4];
+
+// Clear each winning position once, preserve survivor order, and refill from
+// above. The bounded sequence is resolved on the server as one paid round.
+function resolveSlotCascades(initialGrid, nextSymbol) {
+  let grid = initialGrid.map(column => [...column]);
+  let removedCells = [];
+  let runningMultiplier = 0;
+  const frames = [];
+  for (let stage = 0; stage < CASCADE_MULTIPLIERS.length; stage++) {
+    const { winningLines, lineMultiplierSum } = evaluateLines(grid);
+    const cascadeMultiplier = CASCADE_MULTIPLIERS[stage];
+    const payoutMultiplier = lineMultiplierSum / PAYLINES.length * cascadeMultiplier;
+    runningMultiplier += payoutMultiplier;
+    frames.push({ grid, winningLines, scatterCount: countScatters(grid), removedCells,
+      cascadeMultiplier, payoutMultiplier, runningMultiplier });
+    if (!winningLines.length || stage === CASCADE_MULTIPLIERS.length - 1) break;
+
+    const winningCells = new Set();
+    for (const line of winningLines) {
+      for (let reel = 0; reel < line.length; reel++) winningCells.add(`${reel}-${PAYLINES[line.line][reel]}`);
+    }
+    removedCells = [...winningCells].map(cell => {
+      const [reel, row] = cell.split('-').map(Number);
+      return { reel, row };
+    });
+    grid = grid.map((column, reel) => {
+      const survivors = column.filter((_, row) => !winningCells.has(`${reel}-${row}`));
+      const replacements = Array.from({ length: ROWS - survivors.length }, () => nextSymbol());
+      return [...replacements, ...survivors];
+    });
+  }
+  return frames;
+}
+
 /**
  * Evalúa una línea de 5 símbolos (ya extraídos del grid según el patrón de
  * la línea). Devuelve { symbol, length } del combo ganador desde el
@@ -330,7 +365,10 @@ function playFreeSpinsBonus(triggerScatterCount) {
  * con un boost fuerte hasta que ocurra naturalmente, nunca "pintando"
  * el resultado a mano salvo como último recurso extremo.
  */
-function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
+function playSlots({ scatterBoost = 1, guaranteeBonus = false, mode = 'classic' } = {}) {
+  if (mode !== 'classic' && mode !== 'cascades') {
+    throw Object.assign(new Error('Modalidad de tragamonedas inválida'), { status: 400 });
+  }
   let grid;
 
   if (guaranteeBonus) {
@@ -360,7 +398,13 @@ function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
     winningLines.push({ line: lineIndex, symbol: combo.symbol, length: combo.length, multiplier: mult });
   });
 
-  const scatterCount = countScatters(grid);
+  const pool = weightedSymbols(guaranteeBonus ? 1 : scatterBoost);
+  const cascades = mode === 'cascades'
+    ? resolveSlotCascades(grid, () => spinSymbolFrom(pool.symbols, pool.totalWeight))
+    : null;
+  const scatterCount = cascades
+    ? Math.max(...cascades.map(frame => frame.scatterCount))
+    : countScatters(grid);
 
   let bonus = null;
   let bonusMultiplierTotal = 0;
@@ -369,10 +413,14 @@ function playSlots({ scatterBoost = 1, guaranteeBonus = false } = {}) {
     bonusMultiplierTotal = bonus.totalMultiplier;
   }
 
-  const multiplier = lineMultiplierSum / PAYLINES.length + bonusMultiplierTotal;
+  const baseMultiplier = cascades ? cascades.at(-1).runningMultiplier : lineMultiplierSum / PAYLINES.length;
+  const multiplier = baseMultiplier + bonusMultiplierTotal;
 
   return {
     grid,
+    mode,
+    cascades,
+    baseMultiplier,
     winningLines,
     scatterCount,
     bonus, // null si no se disparó el bono; si no, el detalle giro-por-giro para animar
@@ -483,6 +531,8 @@ module.exports = {
   spinRouletteWheel,
   resolveRouletteBet,
   playSlots,
+  resolveSlotCascades,
+  CASCADE_MULTIPLIERS,
   playFreeSpinsBonus,
   BONUS_TIERS,
   colorOf,

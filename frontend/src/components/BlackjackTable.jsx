@@ -2,42 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 import * as sound from '../lib/sound';
+import PlayingCard from './PlayingCard';
+import Icon from './Icon';
 
 const CHIPS = [1, 5, 10, 25, 100];
 const STREAK_KEY = 'bj-streak';
 const SHUFFLE_MS = 620;
 
-const SUIT_COLOR = { '♥': 'text-brick', '♦': 'text-brick' };
-
 const OUTCOME_LABEL = {
-  player_blackjack: '¡Blackjack! Pagás 3:2',
+  player_blackjack: '¡Blackjack! Premio 3:2',
   win: 'Ganaste la mano',
   push: 'Empate — se devuelve tu apuesta',
   loss: 'Perdiste la mano',
   bust: 'Te pasaste de 21',
 };
 
-function Card({ card, delay = 0, flip = false }) {
-  if (card.hidden) {
-    return <div className="bj-card bj-card-back" style={{ animationDelay: `${delay}s` }} />;
-  }
-  return (
-    <div
-      className={`bj-card ${SUIT_COLOR[card.suit] || ''} ${flip ? 'bj-card-flip' : 'bj-card-deal'}`}
-      style={{ animationDelay: `${delay}s` }}
-    >
-      <span className="bj-card-rank">{card.rank}</span>
-      <span className="bj-card-suit">{card.suit}</span>
-      <span className="bj-card-rank bj-card-rank-mirror">{card.rank}</span>
-    </div>
-  );
-}
-
 function CardRow({ cards, flipIndex }) {
   return (
     <div className="bj-cards">
       {cards.map((c, i) => (
-        <Card key={i} card={c} delay={i * 0.14} flip={i === flipIndex} />
+        <PlayingCard key={i} card={c} delay={i * 0.14} flip={i === flipIndex} />
       ))}
     </div>
   );
@@ -47,7 +31,7 @@ function DealerHand({ cards, value, hidden, flipIndex }) {
   return (
     <div className="bj-hand">
       <div className="bj-hand-title">
-        <span className="bj-hand-icon">🎩</span>
+        <span className="bj-hand-eyebrow">LA BANCA</span>
         Dealer
         {!hidden && value && (
           <span className="mono text-gold bj-hand-value">
@@ -66,8 +50,8 @@ function PlayerHand({ hand, index, total, finished }) {
   return (
     <div className={`bj-hand ${hand.active ? 'bj-hand-active' : ''}`}>
       <div className="bj-hand-title">
-        <span className="bj-hand-icon">👤</span>
-        {total > 1 ? `Mano ${index + 1}` : 'Vos'}
+        <span className="bj-hand-eyebrow">TU JUEGO</span>
+        {total > 1 ? `Mano ${index + 1}` : 'Tu mano'}
         {hand.doubled && <span className="bj-tag">doblada</span>}
         {hand.active && <span className="bj-turn-dot" title="Tu turno" />}
         <span className="mono text-gold bj-hand-value">
@@ -243,41 +227,72 @@ export default function BlackjackTable({ onRoundSettled }) {
   const activeHand = round?.hands.find((h) => h.active);
 
   return (
-    <div className="bj-table">
+    <div className="bj-table bj-personal-table">
+      <div className="table-game-heading">
+        <div>
+          <span className="slot-edition">LA MESA PALCO</span>
+          <h2>Blackjack</h2>
+          <p>Una mano bien presentada. Cada decisión, a tu ritmo.</p>
+        </div>
+        <span className="table-game-badge">
+          21<span>Mesa personal</span>
+        </span>
+      </div>
+      <div className="bj-session-strip">
+        <span>
+          Saldo <strong>{formatCents(balanceCents)}</strong>
+        </span>
+        <span>
+          Apuesta <strong>{formatCents(round?.stakeCents ?? stakeCents)}</strong>
+        </span>
+      </div>
       <div className="bj-felt">
         <div className="bj-felt-legend">
-          BLACKJACK PAGA 3 A 2 · EL DEALER PLANTA EN 17 · 6 MAZOS
+          <span>BLACKJACK 3:2</span>
+          <span>DEALER PLANTA EN 17</span>
+          <span>6 MAZOS</span>
           <button
             className="bj-mute"
             onClick={toggleMute}
             aria-label={muted ? 'Activar sonido' : 'Silenciar'}
             title={muted ? 'Activar sonido' : 'Silenciar'}
           >
-            {muted ? '🔇' : '🔊'}
+            <Icon name={muted ? 'muted' : 'sound'} size={17} />
           </button>
         </div>
 
         {streak >= 2 && (
-          <div className="bj-streak mono text-gold">
-            🔥 Racha: {streak} {streak === 1 ? 'mano' : 'manos'} seguidas
-          </div>
+          <div className="bj-streak mono text-gold">{streak} manos ganadas consecutivas</div>
         )}
 
         {shuffling && <ShuffleAnimation />}
 
         {!round && !shuffling && (
           <div className="bj-bet-panel">
+            <div className="bj-empty-table" aria-hidden="true">
+              <PlayingCard card={{ hidden: true }} />
+              <PlayingCard card={{ hidden: true }} />
+              <span>
+                PALCO
+                <br />
+                <small>BLACKJACK CLUB</small>
+              </span>
+            </div>
+            <h3>Tu mesa está lista</h3>
+            <p className="bj-bet-help">Elige tus fichas y reparte para empezar.</p>
             <div className="chip-tray">
               {CHIPS.map((c) => (
                 <button
                   key={c}
                   className={`chip-select ${selectedChip === c ? 'selected' : ''}`}
                   onClick={() => addChip(c)}
+                  disabled={loading}
+                  aria-pressed={selectedChip === c}
                 >
                   S/{c}
                 </button>
               ))}
-              <button className="btn-ghost" onClick={() => setStakeCents(0)}>
+              <button className="btn-ghost" onClick={() => setStakeCents(0)} disabled={loading}>
                 Limpiar
               </button>
             </div>
@@ -285,7 +300,13 @@ export default function BlackjackTable({ onRoundSettled }) {
               Apuesta:{' '}
               <span className="mono text-gold bj-stake-amount">{formatCents(stakeCents)}</span>
             </p>
-            <button className="btn" disabled={stakeCents <= 0 || loading} onClick={start}>
+            <button
+              className="btn"
+              disabled={
+                stakeCents <= 0 || loading || balanceCents === null || stakeCents > balanceCents
+              }
+              onClick={start}
+            >
               Repartir
             </button>
           </div>
@@ -345,39 +366,44 @@ export default function BlackjackTable({ onRoundSettled }) {
             )}
 
             {inHand && activeHand && (
-              <div className="bj-actions">
-                <button
-                  className="btn"
-                  disabled={loading}
-                  onClick={() => runAction(() => api.hitBlackjack(round.id), 'hit')}
-                >
-                  {loadingAction === 'hit' ? 'Pidiendo…' : 'Pedir'}
-                </button>
-                <button
-                  className="btn"
-                  disabled={loading}
-                  onClick={() => runAction(() => api.standBlackjack(round.id), 'stand')}
-                >
-                  {loadingAction === 'stand' ? 'Plantando…' : 'Plantarme'}
-                </button>
-                {round.canDouble && (
+              <div className="bj-decision-panel">
+                <p>
+                  <span className="bj-turn-dot" /> Tu turno · {activeHand.value.value} puntos
+                </p>
+                <div className="bj-actions">
                   <button
-                    className="btn-ghost"
-                    disabled={loading || (balanceCents ?? 0) < round.stakeCents}
-                    onClick={() => runAction(() => api.doubleBlackjack(round.id), 'double')}
+                    className="btn"
+                    disabled={loading}
+                    onClick={() => runAction(() => api.hitBlackjack(round.id), 'hit')}
                   >
-                    {loadingAction === 'double' ? 'Doblando…' : 'Doblar'}
+                    {loadingAction === 'hit' ? 'Pidiendo…' : 'Pedir'}
                   </button>
-                )}
-                {round.canSplit && (
                   <button
-                    className="btn-ghost"
-                    disabled={loading || (balanceCents ?? 0) < round.stakeCents}
-                    onClick={() => runAction(() => api.splitBlackjack(round.id), 'split')}
+                    className="btn"
+                    disabled={loading}
+                    onClick={() => runAction(() => api.standBlackjack(round.id), 'stand')}
                   >
-                    {loadingAction === 'split' ? 'Dividiendo…' : 'Dividir'}
+                    {loadingAction === 'stand' ? 'Plantando…' : 'Plantarme'}
                   </button>
-                )}
+                  {round.canDouble && (
+                    <button
+                      className="btn-ghost"
+                      disabled={loading || (balanceCents ?? 0) < round.stakeCents}
+                      onClick={() => runAction(() => api.doubleBlackjack(round.id), 'double')}
+                    >
+                      {loadingAction === 'double' ? 'Doblando…' : 'Doblar'}
+                    </button>
+                  )}
+                  {round.canSplit && (
+                    <button
+                      className="btn-ghost"
+                      disabled={loading || (balanceCents ?? 0) < round.stakeCents}
+                      onClick={() => runAction(() => api.splitBlackjack(round.id), 'split')}
+                    >
+                      {loadingAction === 'split' ? 'Dividiendo…' : 'Dividir'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -401,7 +427,20 @@ export default function BlackjackTable({ onRoundSettled }) {
         )}
       </div>
 
-      {error && <p className="text-brick">{error}</p>}
+      <details className="table-game-help">
+        <summary>Reglas de esta mesa</summary>
+        <p>
+          Acércate a 21 sin pasarte. El as vale 1 u 11; las figuras, 10. Blackjack natural paga 3:2.
+          El dealer se planta en 17, incluido 17 suave. Puedes doblar con dos cartas y dividir un
+          par una vez; los ases divididos reciben una carta adicional. El seguro se ofrece cuando el
+          dealer muestra un as.
+        </p>
+      </details>
+      {error && (
+        <p className="error-banner" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import { useReducedMotion } from '../lib/useReducedMotion';
 import * as sound from '../lib/sound';
 
@@ -11,13 +11,13 @@ export const WHEEL_ORDER = [
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
 function pocketColor(n) {
-  if (n === 0) return 'var(--felt-3)';
+  if (n === 0) return '#34674b';
   return RED_NUMBERS.has(n) ? '#a6483a' : '#202720';
 }
 
 function resultTextColor(n) {
-  if (n === 0) return 'var(--gold)';
-  return RED_NUMBERS.has(n) ? 'var(--brick)' : 'var(--parchment)';
+  if (n === 0) return '#e4c58b';
+  return RED_NUMBERS.has(n) ? '#f8afa3' : '#f3f4eb';
 }
 
 function resultLabel(n) {
@@ -100,6 +100,7 @@ const WheelFace = memo(function WheelFace() {
 });
 
 export function RouletteWheel({ spinning, winningNumber, onSettled }) {
+  const artId = `wheel-${useId().replaceAll(':', '')}`;
   const wheel = useRef(null);
   const ball = useRef(null);
   const radialBall = useRef(null);
@@ -270,12 +271,29 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         style={{ position: 'absolute', inset: 0 }}
       >
+        <defs>
+          <linearGradient id={`${artId}-brass`} x2="1" y2="1">
+            <stop stopColor="#f3dd9b" />
+            <stop offset=".5" stopColor="#97733c" />
+            <stop offset="1" stopColor="#e4c58b" />
+          </linearGradient>
+          <radialGradient id={`${artId}-wood`}>
+            <stop stopColor="#443f2b" />
+            <stop offset=".8" stopColor="#211f1b" />
+            <stop offset="1" stopColor="#766044" />
+          </radialGradient>
+          <radialGradient id={`${artId}-center`}>
+            <stop stopColor="#315749" />
+            <stop offset="1" stopColor="#173a2b" />
+          </radialGradient>
+        </defs>
+        <circle cx={CENTER} cy={CENTER} r="148" fill={`url(#${artId}-wood)`} />
         <circle
           cx={CENTER}
           cy={CENTER}
           r={TRACK_MID_R}
           fill="none"
-          stroke="var(--line)"
+          stroke="#37392c"
           strokeWidth={TRACK_WIDTH}
         />
         <circle
@@ -283,8 +301,8 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           cy={CENTER}
           r={RIM_R}
           fill="none"
-          stroke="var(--gold)"
-          strokeWidth="2"
+          stroke={`url(#${artId}-brass)`}
+          strokeWidth="5"
         />
         <circle
           cx={CENTER}
@@ -319,9 +337,18 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
           cx={CENTER}
           cy={CENTER}
           r={WEDGE_INNER_R - 2}
-          fill="var(--felt-2)"
-          stroke="var(--gold)"
+          fill={`url(#${artId}-center)`}
+          stroke="#c3a15f"
           strokeWidth="1.5"
+        />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r="65"
+          fill="none"
+          stroke="#c3a15f"
+          strokeWidth=".5"
+          opacity=".4"
         />
       </svg>
 
@@ -335,9 +362,23 @@ export function RouletteWheel({ spinning, winningNumber, onSettled }) {
         style={{ position: 'absolute', inset: 0 }}
       >
         <g ref={radialBall} className="roulette-ball-radial">
-          <circle cx={CENTER} cy={CENTER} r="5.5" fill="var(--parchment)" />
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r="5.5"
+            fill="#fff8e8"
+            stroke="#b7aa8c"
+            strokeWidth=".6"
+          />
         </g>
       </svg>
+
+      {!landed && (
+        <div className="wheel-center-brand" aria-hidden="true">
+          <span>P</span>
+          <small>PALCO</small>
+        </div>
+      )}
 
       {landed && winningNumber !== null && winningNumber !== undefined && (
         <div className="wheel-result-badge">

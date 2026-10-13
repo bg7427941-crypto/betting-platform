@@ -3,10 +3,9 @@ import { connectLiveBlackjack } from '../lib/liveSocket';
 import { useAuth } from '../context/AuthContext';
 import { useWallet, formatCents } from '../context/WalletContext';
 import * as sound from '../lib/sound';
+import PlayingCard from './PlayingCard';
 
 const CHIPS = [1, 5, 10, 25, 100];
-
-const SUIT_COLOR = { '♥': 'text-brick', '♦': 'text-brick' };
 
 const OUTCOME_LABEL = {
   player_blackjack: '¡Blackjack! 3:2',
@@ -23,20 +22,6 @@ const PHASE_LABEL = {
   dealer_phase: 'Juega el dealer…',
   settlement: 'Resultados',
 };
-
-function Card({ card, small }) {
-  if (!card) return null;
-  if (card.hidden) return <div className={`bj-card bj-card-back ${small ? 'bj-card-sm' : ''}`} />;
-  return (
-    <div
-      className={`bj-card bj-card-deal ${SUIT_COLOR[card.suit] || ''} ${small ? 'bj-card-sm' : ''}`}
-    >
-      <span className="bj-card-rank">{card.rank}</span>
-      <span className="bj-card-suit">{card.suit}</span>
-      <span className="bj-card-rank bj-card-rank-mirror">{card.rank}</span>
-    </div>
-  );
-}
 
 function Countdown({ deadline }) {
   const [remaining, setRemaining] = useState(
@@ -87,9 +72,8 @@ function Seat({ seat, index, isYou, activeSeatIndex, phase }) {
       }`}
     >
       <div className="bj-hand-title">
-        <span className="bj-hand-icon">👤</span>
         {seat.name}
-        {isYou && <span className="bj-tag">vos</span>}
+        {isYou && <span className="bj-tag">tú</span>}
         {!seat.connected && <span className="bj-tag">desconectado</span>}
         {isActive && <span className="bj-turn-dot" />}
       </div>
@@ -97,7 +81,7 @@ function Seat({ seat, index, isYou, activeSeatIndex, phase }) {
         <>
           <div className="bj-cards">
             {seat.cards.map((c, i) => (
-              <Card key={i} card={c} small />
+              <PlayingCard key={i} card={c} small />
             ))}
           </div>
           <p className="mono text-gold live-seat-value">
@@ -253,7 +237,7 @@ export default function LiveBlackjack() {
 
         <div className="bj-hand">
           <div className="bj-hand-title">
-            <span className="bj-hand-icon">🎩</span>
+            <span className="bj-hand-eyebrow">LA BANCA</span>
             Dealer
             {table.dealerValue && (
               <span className="mono text-gold bj-hand-value">
@@ -264,7 +248,7 @@ export default function LiveBlackjack() {
           </div>
           <div className="bj-cards">
             {table.dealerCards.map((c, i) => (
-              <Card key={i} card={c} />
+              <PlayingCard key={i} card={c} />
             ))}
           </div>
         </div>

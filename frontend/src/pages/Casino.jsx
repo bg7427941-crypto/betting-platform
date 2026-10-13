@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useWallet, formatCents } from '../context/WalletContext';
 import { RouletteWheel } from '../components/RouletteWheel';
 import { BettingTable } from '../components/BettingTable';
-import { SlotMachine, SLOT_PAYTABLE } from '../components/SlotMachine';
+import SlotsGame from '../components/SlotsGame';
 import BlackjackTable from '../components/BlackjackTable';
 import LiveBlackjack from '../components/LiveBlackjack';
 import * as sound from '../lib/sound';
 import Icon from '../components/Icon';
-import AnimatedAmount from '../components/AnimatedAmount';
 import SoundControls from '../components/SoundControls';
-import { SlotArtwork, SlotSymbol } from '../components/SlotArtwork';
 
 const GAMES = [
   {
@@ -139,7 +137,7 @@ export default function Casino() {
       )}
       {tab === 'slots' && (
         <div key="slots" className="casino-tab-panel">
-          <Slots onRoundSettled={handleRoundSettled} />
+          <SlotsGame onRoundSettled={handleRoundSettled} />
         </div>
       )}
       {tab === 'blackjack' && (
@@ -159,6 +157,8 @@ export default function Casino() {
 function Roulette({ onRoundSettled }) {
   const { balanceCents, refresh, error: balanceError } = useWallet();
   const [placedBets, setPlacedBets] = useState({}); // { key: { type, value, stakeCents } }
+  const [chipHistory, setChipHistory] = useState([]);
+  const [recentNumbers, setRecentNumbers] = useState([]);
   const [selectedChip, setSelectedChip] = useState(5);
   const [spinning, setSpinning] = useState(false);
   const [pendingResult, setPendingResult] = useState(null);
@@ -173,6 +173,7 @@ function Roulette({ onRoundSettled }) {
   function placeChip(key, betShape) {
     setResult(null);
     sound.playChip();
+    setChipHistory((previous) => [...previous, { key, amount: selectedChip * 100 }]);
     setPlacedBets((prev) => {
       const existing = prev[key];
       const stakeCents = (existing?.stakeCents || 0) + selectedChip * 100;
@@ -183,6 +184,20 @@ function Roulette({ onRoundSettled }) {
   function clearAll() {
     setPlacedBets({});
     setResult(null);
+    setChipHistory([]);
+  }
+
+  function undoChip() {
+    const last = chipHistory.at(-1);
+    if (!last) return;
+    setPlacedBets((previous) => {
+      const next = { ...previous };
+      const remaining = next[last.key].stakeCents - last.amount;
+      if (remaining > 0) next[last.key] = { ...next[last.key], stakeCents: remaining };
+      else delete next[last.key];
+      return next;
+    });
+    setChipHistory((previous) => previous.slice(0, -1));
   }
 
   async function play() {
@@ -207,44 +222,102 @@ function Roulette({ onRoundSettled }) {
   }
 
   function handleSettled() {
+    if (!pendingResult) return;
     setSpinning(false);
     setResult(pendingResult);
     setPlacedBets({});
+    setChipHistory([]);
+    setRecentNumbers((previous) => [pendingResult.outcome, ...previous].slice(0, 12));
     onRoundSettled && onRoundSettled(pendingResult.payout_cents - pendingResult.stake_cents);
     if (pendingResult.payout_cents > pendingResult.stake_cents) sound.playWin();
     else sound.playLose();
   }
 
-  const wonBets = result?.outcome.bets.filter((b) => b.won) || [];
-
+  const wonBets = result?.outcome.bets.filter((bet) => bet.won) || [];
   return (
-    <div className="panel" style={{ maxWidth: 900 }}>
+    <div className="roulette-cabinet">
+      <div className="table-game-heading">
+        <div>
+          <span className="slot-edition">LA MESA PALCO</span>
+          <h2>Ruleta Europea</h2>
+          <p>Un solo cero. Treinta y siete posibilidades.</p>
+        </div>
+        <span className="table-game-badge">
+          37<span>Ruleta europea</span>
+        </span>
+      </div>
       {error && (
         <div className="error-banner" role="alert">
           {error}
         </div>
       )}
-
-      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-        <RouletteWheel
-          spinning={spinning}
-          winningNumber={pendingResult?.outcome.winningNumber}
-          onSettled={handleSettled}
-        />
-
+      <div className="roulette-stage">
+        <div className="roulette-wheel-display">
+          <RouletteWheel
+            spinning={spinning}
+            winningNumber={pendingResult?.outcome.winningNumber}
+            onSettled={handleSettled}
+          />
+          <div className="roulette-wheel-caption">
+            <span>EUROPEA</span>
+            <span>UN SOLO CERO</span>
+          </div>
+        </div>
         <div className="roulette-summary">
-          <div className="text-sage" style={{ fontSize: 13, marginBottom: 4 }}>
-            Total en mesa
+          <div className="roulette-metrics">
+            <div>
+              <span>Tu saldo</span>
+              <strong>{formatCents(balanceCents)}</strong>
+            </div>
+            <div>
+              <span>Total en mesa</span>
+              <strong>{formatCents(totalStakeCents)}</strong>
+            </div>
           </div>
-          <div className="mono text-gold" style={{ fontSize: 24, marginBottom: 16 }}>
-            {formatCents(totalStakeCents)}
+          <div className="roulette-round-status" role="status">
+            {result ? (
+              <>
+                <span className={`roulette-result-chip is-${result.outcome.color}`}>
+                  {result.outcome.winningNumber}
+                </span>
+                <div>
+                  <strong>
+                    {result.payout_cents > 0
+                      ? `Premio de ${formatCents(result.payout_cents)}`
+                      : 'Giro completado'}
+                  </strong>
+                  <span>
+                    {result.outcome.color === 'red'
+                      ? 'Rojo'
+                      : result.outcome.color === 'black'
+                        ? 'Negro'
+                        : 'Verde'}
+                    {wonBets.length ? ` · ${wonBets.length} apuestas ganadoras` : ''}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div>
+                <strong>
+                  {spinning
+                    ? 'La bola está en juego…'
+                    : totalStakeCents
+                      ? 'Tu apuesta está lista'
+                      : 'Elige tus fichas y tu jugada'}
+                </strong>
+                <span>
+                  {spinning
+                    ? 'El resultado aparece cuando la rueda se detiene.'
+                    : 'Cada ficha se suma a la casilla que elijas.'}
+                </span>
+              </div>
+            )}
           </div>
-
-          <button className="btn" onClick={play} disabled={!canPlay} style={{ width: '100%' }}>
+          <button className="btn roulette-spin-button" onClick={play} disabled={!canPlay}>
             {spinning ? 'Girando…' : 'Girar ruleta'}
           </button>
           {overBalance && !spinning && (
-            <p className="input-note" role="status" style={{ marginTop: 12 }}>
+            <p className="input-note" role="status">
               El total supera tu saldo de {formatCents(balanceCents)}. Reduce las fichas o{' '}
               <Link to="/wallet" className="text-gold">
                 agrega saldo virtual
@@ -252,69 +325,26 @@ function Roulette({ onRoundSettled }) {
               .
             </p>
           )}
-
-          {result && (
-            <div className="result-reveal" style={{ marginTop: 16 }}>
-              <hr className="divider" />
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                <span className="mono" style={{ fontSize: 32 }}>
-                  {result.outcome.winningNumber}
-                </span>
-                <span
-                  className={
-                    result.outcome.color === 'red'
-                      ? 'text-brick'
-                      : result.outcome.color === 'black'
-                        ? 'text-sage'
-                        : 'text-gold'
-                  }
-                  style={{ textTransform: 'capitalize' }}
-                >
-                  {result.outcome.color === 'red'
-                    ? 'rojo'
-                    : result.outcome.color === 'black'
-                      ? 'negro'
-                      : 'verde'}
-                </span>
-              </div>
-              <div style={{ marginTop: 6 }}>
-                {result.payout_cents > 0 ? (
-                  <span className="roulette-win-line">
-                    <svg
-                      key={result.payout_cents /* re-dispara el pop-in en cada victoria nueva */}
-                      className="roulette-win-chip"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle cx="12" cy="12" r="10" stroke="var(--gold)" strokeWidth="1.5" />
-                      <circle cx="12" cy="12" r="5.5" stroke="var(--gold)" strokeWidth="1.5" />
-                      <path
-                        d="M12 2v3.2M12 18.8V22M22 12h-3.2M5.2 12H2M19.07 4.93l-2.26 2.26M7.19 16.81l-2.26 2.26M19.07 19.07l-2.26-2.26M7.19 7.19L4.93 4.93"
-                        stroke="var(--gold)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <span className="text-gold">Ganaste {formatCents(result.payout_cents)}</span>
+          <div className="roulette-recent">
+            <span>Últimos números de esta mesa</span>
+            <div>
+              {recentNumbers.length ? (
+                recentNumbers.map((outcome, index) => (
+                  <span
+                    key={index}
+                    className={`roulette-result-chip is-${outcome.color}`}
+                    aria-label={`${outcome.winningNumber}, ${outcome.color === 'red' ? 'rojo' : outcome.color === 'black' ? 'negro' : 'verde'}`}
+                  >
+                    {outcome.winningNumber}
                   </span>
-                ) : (
-                  <span className="text-sage">Sin suerte esta vez</span>
-                )}
-              </div>
-              {wonBets.length > 0 && (
-                <div className="text-sage" style={{ fontSize: 12, marginTop: 6 }}>
-                  {wonBets.length} de tus {result.outcome.bets.length} apuestas ganaron
-                </div>
+                ))
+              ) : (
+                <small>Los resultados de tus giros aparecerán aquí.</small>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
-
-      <hr className="divider" />
-
       <BettingTable
         placedBets={placedBets}
         onPlaceChip={placeChip}
@@ -323,556 +353,18 @@ function Roulette({ onRoundSettled }) {
         onSelectChip={setSelectedChip}
         disabled={spinning}
         winningNumber={result?.outcome.winningNumber}
+        onUndo={undoChip}
+        canUndo={chipHistory.length > 0}
       />
-    </div>
-  );
-}
-
-const BET_STEP_CENTS = 100; // S/1
-const MIN_STAKE_CENTS = 100; // S/1
-const BIG_WIN_MULTIPLIER = 15; // a partir de acá se muestra el banner de premio grande
-const AUTOPLAY_OPTIONS = [10, 25, 50, 100];
-const AUTOPLAY_GAP_MS = 550;
-
-// Se usan como respaldo mientras carga /api/casino/slots/config, para que no
-// parpadeen los precios al entrar — deben coincidir con casino.service.js.
-const DEFAULT_ANTE_TIERS = {
-  none: { costMultiplier: 1, scatterBoost: 1 },
-  ante25: { costMultiplier: 1.25, scatterBoost: 1.72 },
-  ante50: { costMultiplier: 1.5, scatterBoost: 2.13 },
-  ante100: { costMultiplier: 2, scatterBoost: 2.66 },
-};
-// Deben coincidir con casino.service.js.
-const DEFAULT_BUY_BONUS_MULTIPLIER = 28;
-const ANTE_LABELS = {
-  none: 'Normal',
-  ante25: '+25%',
-  ante50: '+50%',
-  ante100: '+100%',
-};
-
-function Slots({ onRoundSettled }) {
-  const { balanceCents, refresh } = useWallet();
-  const artworkId = `corona-${useId().replaceAll(':', '')}`;
-  const [stakeCents, setStakeCents] = useState(500);
-  const [anteTier, setAnteTier] = useState('none');
-  const [turbo, setTurbo] = useState(false);
-  const [spinning, setSpinning] = useState(false);
-  const [pendingRound, setPendingRound] = useState(null);
-  const [round, setRound] = useState(null);
-  const [error, setError] = useState('');
-  const [showPaytable, setShowPaytable] = useState(false);
-  const [lastPayoutCents, setLastPayoutCents] = useState(0);
-  const [dismissedBigWin, setDismissedBigWin] = useState(false);
-  const [slotsConfig, setSlotsConfig] = useState(null);
-  const [autoplayTotal, setAutoplayTotal] = useState(null); // null = no está en autoplay
-  const [autoplayRemaining, setAutoplayRemaining] = useState(0);
-  const autoplayRef = useRef(false);
-  const autoplayRemainingRef = useRef(0);
-  const pendingRoundRef = useRef(null); // guarda el round que disparó el bono, sin re-alimentar displayResult
-
-  // --- reproducción del bono de giros gratis (backend ya jugó toda la
-  // ronda de una vez; acá solo la vamos revelando giro por giro) ---
-  const [bonusActive, setBonusActive] = useState(false);
-  const [bonusSpins, setBonusSpins] = useState([]);
-  const [bonusIndex, setBonusIndex] = useState(0);
-  const [bonusInfo, setBonusInfo] = useState(null); // { bonusMultiplier, triggerScatterCount }
-  const [bonusRunningCents, setBonusRunningCents] = useState(0);
-  const [bonusSpinning, setBonusSpinning] = useState(false);
-  const [bonusRetriggerFlash, setBonusRetriggerFlash] = useState(false);
-  // Momento de "entrada" (se revela el multiplicador y la cantidad de giros
-  // antes de tirar el primer carrete) y de "cierre" (se cuenta el total
-  // acumulado antes de volver al juego base) — sin esto el bono se sentía
-  // como una tanda de giros más, sin arranque ni remate.
-  const [bonusIntroVisible, setBonusIntroVisible] = useState(false);
-  const [bonusOutroVisible, setBonusOutroVisible] = useState(false);
-  const [bonusOutroTotalCents, setBonusOutroTotalCents] = useState(0);
-  const stakeAtBonusStart = useRef(0);
-  const bonusTimers = useRef([]);
-  const bonusIntroTimer = useRef(null);
-  const bonusOutroTimer = useRef(null);
-
-  useEffect(() => {
-    api
-      .getSlotsConfig()
-      .then(setSlotsConfig)
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => () => bonusTimers.current.forEach(clearTimeout), []);
-
-  const anteTiers = slotsConfig?.anteTiers || DEFAULT_ANTE_TIERS;
-  const buyBonusMultiplier = slotsConfig?.buyBonusCostMultiplier ?? DEFAULT_BUY_BONUS_MULTIPLIER;
-
-  const normalCostCents = Math.round(stakeCents * anteTiers[anteTier].costMultiplier);
-  const buyBonusCostCents = Math.round(stakeCents * buyBonusMultiplier);
-
-  async function spin({ buyBonus = false } = {}) {
-    setSpinning(true);
-    setError('');
-    setRound(null);
-    setPendingRound(null);
-    setDismissedBigWin(false);
-    try {
-      const { round: newRound } = await api.playCasino({
-        game: 'slots',
-        stake_cents: stakeCents,
-        buy_bonus: buyBonus,
-        ante_tier: buyBonus ? 'none' : anteTier,
-      });
-      setPendingRound(newRound);
-      await refresh().catch(() => {});
-    } catch (err) {
-      setError(err.message);
-      setSpinning(false);
-      stopAutoplay();
-    }
-  }
-
-  function startAutoplay(count) {
-    setAutoplayTotal(count);
-    setAutoplayRemaining(count);
-    autoplayRemainingRef.current = count;
-    autoplayRef.current = true;
-    spin();
-  }
-
-  function stopAutoplay() {
-    autoplayRef.current = false;
-    setAutoplayTotal(null);
-    setAutoplayRemaining(0);
-    autoplayRemainingRef.current = 0;
-  }
-
-  // continúa el autoplay (si corresponde) después de que un resultado ya
-  // quedó totalmente revelado — se llama tanto tras un giro normal como
-  // tras terminar de reproducir un bono.
-  function continueAutoplayIfNeeded() {
-    if (!autoplayRef.current) return;
-    const next = Math.max(0, autoplayRemainingRef.current - 1);
-    autoplayRemainingRef.current = next;
-    setAutoplayRemaining(next);
-    if (next > 0 && balanceCents >= normalCostCents) {
-      const timer = setTimeout(() => {
-        if (autoplayRef.current) spin();
-      }, AUTOPLAY_GAP_MS);
-      bonusTimers.current.push(timer);
-    } else {
-      autoplayRef.current = false;
-      setAutoplayTotal(null);
-    }
-  }
-
-  function handleSettled() {
-    if (!pendingRound) return;
-    if (pendingRound?.outcome.bonus) {
-      // Guardamos el round en un ref (para revelarlo al final) y limpiamos
-      // el estado `pendingRound` — si lo dejáramos, al terminar el bono
-      // volvería a ser el `result` de la tragamonedas, se vería como "llegó
-      // un resultado nuevo", se re-animaría, y eso re-detectaría el bono y
-      // arrancaría todo de nuevo (el bucle que se repetía 2-3 veces).
-      pendingRoundRef.current = pendingRound;
-      stakeAtBonusStart.current = stakeCents;
-      setBonusInfo({
-        bonusMultiplier: pendingRound.outcome.bonus.bonusMultiplier,
-        triggerScatterCount: pendingRound.outcome.bonus.triggerScatterCount,
-      });
-      setBonusSpins(pendingRound.outcome.bonus.spins);
-      setBonusIndex(0);
-      setBonusRunningCents(0);
-      setPendingRound(null);
-      // No arrancamos los giros todavía: primero se anuncia el bono
-      // (cuántos giros, qué multiplicador) y recién con eso — o con el
-      // click de "Empezar" — se dispara la cascada de carretes.
-      setBonusIntroVisible(true);
-      sound.playBlackjack();
-      const introMs = turbo ? 900 : 2000;
-      const t = setTimeout(() => startBonusSpins(), introMs);
-      bonusIntroTimer.current = t;
-      bonusTimers.current.push(t);
-      return;
-    }
-
-    setSpinning(false);
-    setRound(pendingRound);
-    setLastPayoutCents(pendingRound.payout_cents);
-    onRoundSettled && onRoundSettled(pendingRound.payout_cents - pendingRound.stake_cents);
-    if (pendingRound.payout_cents > pendingRound.stake_cents) {
-      if (pendingRound.outcome.multiplier >= BIG_WIN_MULTIPLIER) sound.playBlackjack();
-      else sound.playWin();
-    } else {
-      sound.playLose();
-    }
-    continueAutoplayIfNeeded();
-  }
-
-  function startBonusSpins() {
-    if (bonusIntroTimer.current) clearTimeout(bonusIntroTimer.current);
-    setBonusIntroVisible(false);
-    setBonusActive(true);
-    setBonusSpinning(true);
-  }
-
-  function handleBonusSpinSettled() {
-    setBonusSpinning(false);
-    const currentSpin = bonusSpins[bonusIndex];
-    const spinPayoutCents = Math.round(currentSpin.payoutMultiplier * stakeAtBonusStart.current);
-    // Se necesita el total ya sumado (no el viejo `bonusRunningCents`, que
-    // recién se actualiza en el próximo render) para poder pasárselo al
-    // cierre del bono si este era el último giro.
-    const newRunningCents = bonusRunningCents + spinPayoutCents;
-    setBonusRunningCents(newRunningCents);
-
-    if (currentSpin.retriggerAmount > 0) {
-      setBonusRetriggerFlash(true);
-      const flashTimer = setTimeout(() => setBonusRetriggerFlash(false), 1400);
-      bonusTimers.current.push(flashTimer);
-    }
-
-    const nextIndex = bonusIndex + 1;
-    const pauseMs = turbo ? 500 : 900;
-
-    if (nextIndex < bonusSpins.length) {
-      const t = setTimeout(() => {
-        setBonusIndex(nextIndex);
-        setBonusSpinning(true);
-      }, pauseMs);
-      bonusTimers.current.push(t);
-    } else {
-      const t = setTimeout(() => {
-        setBonusActive(false);
-        setBonusSpinning(false);
-        // Cierre del bono: se muestra el total acumulado contándose hacia
-        // arriba antes de volver al juego base (ver finishBonusOutro).
-        setBonusOutroTotalCents(newRunningCents);
-        setBonusOutroVisible(true);
-        const outroMs = turbo ? 1200 : 2400;
-        const outroTimer = setTimeout(() => finishBonusOutro(), outroMs);
-        bonusOutroTimer.current = outroTimer;
-        bonusTimers.current.push(outroTimer);
-      }, pauseMs);
-      bonusTimers.current.push(t);
-    }
-  }
-
-  function finishBonusOutro() {
-    if (bonusOutroTimer.current) clearTimeout(bonusOutroTimer.current);
-    setBonusOutroVisible(false);
-    setSpinning(false);
-    setRound(pendingRoundRef.current); // el round guardado, con el pago total ya calculado por el backend
-    setLastPayoutCents(pendingRoundRef.current.payout_cents);
-    onRoundSettled &&
-      onRoundSettled(pendingRoundRef.current.payout_cents - pendingRoundRef.current.stake_cents);
-    if (pendingRoundRef.current.payout_cents > pendingRoundRef.current.stake_cents)
-      sound.playBlackjack();
-    else sound.playLose();
-    continueAutoplayIfNeeded();
-  }
-
-  const multiplier = round?.outcome.multiplier || 0;
-  const isBigWin = round && multiplier >= BIG_WIN_MULTIPLIER && !dismissedBigWin;
-  const isAutoplaying = autoplayTotal !== null;
-  const canAffordNormal = balanceCents >= normalCostCents;
-  const canAffordBonus = balanceCents >= buyBonusCostCents;
-
-  const displayResult = bonusActive ? bonusSpins[bonusIndex] : pendingRound?.outcome;
-  const displaySpinning = bonusActive
-    ? bonusSpinning
-    : spinning && !bonusIntroVisible && !bonusOutroVisible;
-  const displayOnSettled = bonusActive ? handleBonusSpinSettled : handleSettled;
-
-  return (
-    <div className="slot-cabinet">
-      <SlotArtwork id={artworkId} />
-      {error && <div className="error-banner">{error}</div>}
-
-      <div className="slot-marquee">
-        <div className="slot-brand-emblem">
-          <SlotSymbol symbol="👑" artworkId={artworkId} decorative />
-        </div>
-        <div>
-          <div className="slot-edition">LA COLECCIÓN PALCO</div>
-          <h2 className="slot-title">Corona Real</h2>
-          <div className="slot-subtitle">Cinco carretes. Una experiencia real.</div>
-        </div>
-        <span className="slot-game-seal">
-          5 × 3<span>10 líneas</span>
-        </span>
-      </div>
-
-      <div className="slot-balance-strip">
-        <div>
-          <span>Tu saldo</span>
-          <strong>{formatCents(balanceCents || 0)}</strong>
-        </div>
-        <div>
-          <span>Apuesta total</span>
-          <strong>{formatCents(normalCostCents)}</strong>
-        </div>
-        <div>
-          <span>Último premio</span>
-          <strong>{formatCents(lastPayoutCents)}</strong>
-        </div>
-      </div>
-
-      {bonusActive && bonusInfo && (
-        <div className="slot-bonus-bar">
-          <div>
-            <span className="text-gold">Corona Ascendente · Giros gratis</span>
-            <span className="text-sage" style={{ marginLeft: 8 }}>
-              multiplicador ×{bonusInfo.bonusMultiplier}
-            </span>
-          </div>
-          <div className="mono">
-            Giro {bonusIndex + 1}/{bonusSpins.length} · Acumulado{' '}
-            <span className="text-gold">{formatCents(bonusRunningCents)}</span>
-          </div>
-        </div>
-      )}
-
-      {bonusRetriggerFlash && (
-        <div className="slot-retrigger-flash">¡Re-disparo! Más giros gratis</div>
-      )}
-
-      <div className="slot-stage">
-        <SlotMachine
-          spinning={displaySpinning}
-          result={displayResult}
-          turbo={turbo}
-          onSettled={displayOnSettled}
-          artworkId={artworkId}
-        />
-
-        {isBigWin && (
-          <div className="slot-bigwin-overlay">
-            <div className="slot-bigwin-burst" />
-            {Array.from({ length: 10 }).map((_, i) => (
-              <span
-                key={i}
-                className="slot-bigwin-sparkle"
-                style={{
-                  left: `${8 + i * 9}%`,
-                  animationDelay: `${(i % 5) * 0.15}s`,
-                }}
-              >
-                {i % 2 === 0 ? '✦' : '✧'}
-              </span>
-            ))}
-            <div className="slot-bigwin-label">
-              {multiplier >= 80 ? '¡Premio mayor!' : '¡Gran premio!'}
-            </div>
-            <div className="slot-bigwin-amount">{formatCents(round.payout_cents)}</div>
-            <button className="btn slot-bigwin-dismiss" onClick={() => setDismissedBigWin(true)}>
-              {' '}
-              Continuar
-            </button>
-          </div>
-        )}
-
-        {bonusIntroVisible && bonusInfo && (
-          <div className="slot-bonus-intro-overlay">
-            <div className="slot-bonus-intro-ring" />
-            <div className="slot-bonus-intro-kicker">
-              {bonusInfo.triggerScatterCount} símbolos de bono · Corona Ascendente
-            </div>
-            <div className="slot-bonus-intro-title">GIROS GRATIS</div>
-            <div className="slot-bonus-intro-detail">
-              <span className="mono">{bonusSpins.length}</span> giros · multiplicador{' '}
-              <span className="mono">×{bonusInfo.bonusMultiplier}</span>
-            </div>
-            <button className="btn slot-bonus-intro-start" onClick={startBonusSpins}>
-              Empezar
-            </button>
-          </div>
-        )}
-
-        {bonusOutroVisible && (
-          <div className="slot-bonus-outro-overlay">
-            <div className="slot-bonus-outro-kicker">Bono terminado</div>
-            <div className="slot-bonus-outro-amount mono">
-              <AnimatedAmount cents={bonusOutroTotalCents} duration={turbo ? 500 : 1100} />
-            </div>
-            <button className="btn slot-bonus-outro-continue" onClick={finishBonusOutro}>
-              Continuar
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="slot-round-status" role="status" aria-live="polite">
-        <span
-          className={`slot-status-dot ${displaySpinning ? 'is-spinning' : ''}`}
-          aria-hidden="true"
-        />
-        <div>
-          <strong>
-            {bonusIntroVisible
-              ? 'Corona Ascendente activada'
-              : bonusOutroVisible
-                ? 'Bono completado'
-                : bonusActive
-                  ? `Giro gratis ${bonusIndex + 1} de ${bonusSpins.length}`
-                  : spinning
-                    ? 'Girando los carretes…'
-                    : round
-                      ? round.outcome.won
-                        ? `Premio de ${formatCents(round.payout_cents)}`
-                        : 'Giro completado'
-                      : 'Todo listo para tu próximo giro'}
-          </strong>
-          <span>
-            {bonusActive
-              ? `Acumulado: ${formatCents(bonusRunningCents)}`
-              : spinning
-                ? 'Cada carrete se detiene de izquierda a derecha.'
-                : round
-                  ? 'Puedes revisar las combinaciones en la tabla de pagos.'
-                  : 'Tres símbolos iguales desde la izquierda forman una combinación.'}
-          </span>
-        </div>
-      </div>
-
-      <div className="slot-controls">
-        <div className="slot-wager-control">
-          <span className="slot-wager-label">Apuesta base</span>
-          <div className="slot-bet-stepper">
-            <button
-              type="button"
-              onClick={() => setStakeCents((c) => Math.max(MIN_STAKE_CENTS, c - BET_STEP_CENTS))}
-              disabled={spinning || stakeCents <= MIN_STAKE_CENTS}
-              aria-label="Reducir apuesta"
-            >
-              −
-            </button>
-            <span className="slot-bet-value mono">{formatCents(stakeCents)}</span>
-            <button
-              type="button"
-              onClick={() => setStakeCents((c) => c + BET_STEP_CENTS)}
-              disabled={spinning}
-              aria-label="Aumentar apuesta"
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={`slot-turbo-toggle ${turbo ? 'active' : ''}`}
-          onClick={() => setTurbo((v) => !v)}
-          disabled={spinning}
-          aria-pressed={turbo}
-          title="Cambiar entre ritmo normal y rápido"
-        >
-          <Icon name="play" size={16} /> {turbo ? 'Ritmo rápido' : 'Ritmo normal'}
-        </button>
-
-        {isAutoplaying ? (
-          <button className="btn-ghost slot-spin-btn slot-autoplay-active" onClick={stopAutoplay}>
-            <span className="slot-autoplay-dot" />
-            Detener ({autoplayRemaining})
-          </button>
-        ) : (
-          <button
-            className="btn slot-spin-btn"
-            onClick={() => spin()}
-            disabled={spinning || !canAffordNormal}
-          >
-            {bonusActive || bonusIntroVisible || bonusOutroVisible
-              ? 'En bono…'
-              : spinning
-                ? 'Girando…'
-                : `Girar · ${formatCents(normalCostCents)}`}
-          </button>
-        )}
-      </div>
-
-      {isAutoplaying && (
-        <div className="slot-autoplay-progress-track">
-          <div
-            className="slot-autoplay-progress-fill"
-            style={{
-              width: `${((autoplayTotal - autoplayRemaining) / autoplayTotal) * 100}%`,
-            }}
-          />
-        </div>
-      )}
-
-      <details className="slot-options">
-        <summary>
-          Opciones de juego<span>Ante · Automático · Bono</span>
-        </summary>
-        <div className="slot-ante-row">
-          <span className="text-sage slot-ante-label">Ante · Mayor probabilidad de bono</span>
-          {Object.keys(anteTiers).map((key) => (
-            <button
-              key={key}
-              className={`slot-ante-btn ${anteTier === key ? 'selected' : ''}`}
-              onClick={() => setAnteTier(key)}
-              disabled={spinning || isAutoplaying}
-            >
-              {ANTE_LABELS[key]}
-            </button>
-          ))}
-        </div>
-
-        <div className="slot-buy-bonus-row">
-          <button
-            className="slot-buy-bonus-btn"
-            onClick={() => spin({ buyBonus: true })}
-            disabled={spinning || isAutoplaying || !canAffordBonus}
-          >
-            <span>Comprar bono · Corona Ascendente</span>
-            <span className="mono">{formatCents(buyBonusCostCents)}</span>
-          </button>
-        </div>
-
-        {!isAutoplaying && (
-          <div className="slot-autoplay-row">
-            <span className="text-sage" style={{ fontSize: 12 }}>
-              Giros automáticos:
-            </span>
-            {AUTOPLAY_OPTIONS.map((n) => (
-              <button
-                key={n}
-                className="btn-ghost slot-autoplay-btn"
-                onClick={() => startAutoplay(n)}
-                disabled={spinning || !canAffordNormal}
-              >
-                {n}×
-              </button>
-            ))}
-          </div>
-        )}
+      <details className="table-game-help">
+        <summary>Cómo se juega a la ruleta</summary>
+        <p>
+          Selecciona una ficha y luego un número o una apuesta exterior. Un número paga 35:1;
+          docenas y columnas, 2:1; rojo/negro, par/impar y mitades, 1:1. El cero solo gana al
+          apostar al número 0. Deshacer retira la última ficha colocada; limpiar retira todas antes
+          de girar.
+        </p>
       </details>
-
-      <div className="slot-readout-row">
-        <span>Apostado por línea</span>
-        <span className="slot-readout-value">{formatCents(Math.round(stakeCents / 10))} × 10</span>
-      </div>
-
-      <button
-        className="slot-paytable-toggle"
-        aria-expanded={showPaytable}
-        onClick={() => setShowPaytable((v) => !v)}
-      >
-        {showPaytable ? 'Ocultar tabla de pagos' : 'Ver tabla de pagos'}
-      </button>
-
-      {showPaytable && (
-        <div className="slot-paytable">
-          {SLOT_PAYTABLE.map((row) => (
-            <div className="slot-paytable-row" key={row.symbol}>
-              <span className="slot-paytable-symbol">
-                {row.symbol.split(' ').map((symbol) => (
-                  <SlotSymbol key={symbol} symbol={symbol} artworkId={artworkId} />
-                ))}
-              </span>
-              <span className="slot-paytable-values">{row.values}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

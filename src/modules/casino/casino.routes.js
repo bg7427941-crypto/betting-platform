@@ -10,7 +10,7 @@ router.use(requireAuth);
 
 router.post('/play', casinoPlayLimiter, async (req, res) => {
   try {
-    const { game, stake_cents, bets, buy_bonus, ante_tier } = req.body;
+    const { game, stake_cents, bets, buy_bonus, ante_tier, slot_mode } = req.body;
     const normalizedBets = Array.isArray(bets)
       ? bets.map((b) => ({ type: b.type, value: b.value, stakeCents: b.stake_cents }))
       : undefined;
@@ -20,6 +20,7 @@ router.post('/play', casinoPlayLimiter, async (req, res) => {
       bets: normalizedBets,
       buyBonus: buy_bonus,
       anteTier: ante_tier,
+      slotMode: slot_mode,
     });
     res.status(201).json(result);
   } catch (err) {

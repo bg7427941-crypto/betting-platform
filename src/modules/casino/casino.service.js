@@ -1,5 +1,5 @@
 const { withTransaction } = require('../../db');
-const { spinRouletteWheel, resolveRouletteBet, playSlots } = require('./games.engine');
+const { spinRouletteWheel, resolveRouletteBet, playSlots, SLOT_SYMBOLS, BONUS_TIERS, CASCADE_MULTIPLIERS } = require('./games.engine');
 
 const MAX_STAKE_CENTS = 100_000_00; // límite de seguridad total por giro
 
@@ -99,7 +99,10 @@ const ANTE_TIERS = {
 // apuesta del juego).
 const BUY_BONUS_COST_MULTIPLIER = 28;
 
-async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier = 'none' }) {
+async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier = 'none', slotMode = 'classic' }) {
+  if (slotMode !== 'classic' && slotMode !== 'cascades') {
+    throw Object.assign(new Error('Modalidad de tragamonedas inválida'), { status: 400 });
+  }
   if (!Number.isInteger(stakeCents) || stakeCents <= 0) {
     throw Object.assign(new Error('Monto de apuesta inválido'), { status: 400 });
   }
@@ -134,8 +137,8 @@ async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier =
     }
 
     const outcome = buyBonus
-      ? playSlots({ guaranteeBonus: true })
-      : playSlots({ scatterBoost: tier.scatterBoost });
+      ? playSlots({ guaranteeBonus: true, mode: slotMode })
+      : playSlots({ scatterBoost: tier.scatterBoost, mode: slotMode });
 
     // Los pagos de líneas/scatter son múltiplos de la apuesta BASE elegida
     // por el jugador, no del costo real cobrado (así es como funcionan
@@ -180,15 +183,20 @@ async function playSlotsRound(userId, { stakeCents, buyBonus = false, anteTier =
  * roulette: payload = { bets: [{ type, value?, stakeCents }, ...] }
  * slots:    payload = { stakeCents, buyBonus?, anteTier? }
  */
-async function playRound(userId, { game, bets, stakeCents, buyBonus, anteTier }) {
+async function playRound(userId, { game, bets, stakeCents, buyBonus, anteTier, slotMode }) {
   if (game === 'roulette') return playRoulette(userId, bets);
-  if (game === 'slots') return playSlotsRound(userId, { stakeCents, buyBonus, anteTier });
+  if (game === 'slots') return playSlotsRound(userId, { stakeCents, buyBonus, anteTier, slotMode });
   throw Object.assign(new Error('Juego no soportado'), { status: 400 });
 }
 
 /** Config pública para que el frontend muestre los costos exactos, sin duplicar números mágicos. */
 function getSlotsConfig() {
-  return { anteTiers: ANTE_TIERS, buyBonusCostMultiplier: BUY_BONUS_COST_MULTIPLIER };
+  return {
+    anteTiers: ANTE_TIERS, buyBonusCostMultiplier: BUY_BONUS_COST_MULTIPLIER,
+    modes: { classic: { name: 'Clásico' }, cascades: { name: 'Cascadas', multipliers: CASCADE_MULTIPLIERS } },
+    paytable: SLOT_SYMBOLS.filter(symbol => symbol.payout).map(({ symbol, payout }) => ({ symbol, payout })),
+    bonusTiers: BONUS_TIERS,
+  };
 }
 
 module.exports = { playRound, getSlotsConfig, MAX_STAKE_CENTS };

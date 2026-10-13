@@ -8,6 +8,7 @@ import './styles/ux.css';
 import './styles/presentation.css';
 import './styles/game-motion.css';
 import './styles/slots.css';
+import './styles/casino-tables.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
